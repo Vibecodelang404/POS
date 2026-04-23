@@ -386,7 +386,7 @@ ob_start();
                 <!-- <td><?=htmlspecialchars($p['status'] ?? '')?></td> -->
                 <td>
                     <button class="btn btn-primary btn-sm" onclick="editProduct(<?=htmlspecialchars(json_encode($p), ENT_QUOTES, 'UTF-8')?>)">Edit</button>
-                    <a href="?delete=<?=$p['id']?>" class="btn btn-danger btn-sm" onclick="return confirm('Delete?')">Delete</a>
+                    <button class="btn btn-danger btn-sm" onclick="deleteProduct(<?=$p['id']?>)">Delete</button>
                 </td>
             </tr>
             <?php endforeach; ?>
@@ -481,6 +481,66 @@ ob_start();
         printWindow.document.close();
         printWindow.print();
     }
+
+    // Delete Product with SweetAlert
+    function deleteProduct(productId, productName) {
+        Swal.fire({
+            title: 'Delete Product?',
+            text: `Are you sure you want to delete "${productName}"? This action cannot be undone.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, Delete',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = '?delete=' + productId;
+            }
+        });
+    }
+
+    // Form submission handlers
+    document.addEventListener('DOMContentLoaded', function() {
+        const productForm = document.getElementById('productForm');
+        if (productForm) {
+            productForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const isAdd = document.getElementById('modalAddBtn').classList.contains('d-none') === false;
+                const isUpdate = document.getElementById('modalUpdateBtn').classList.contains('d-none') === false;
+                
+                let title, text, confirmText, confirmColor;
+                
+                if (isAdd) {
+                    title = 'Add Product?';
+                    text = 'Are you sure you want to add this product to the inventory?';
+                    confirmText = 'Yes, Add';
+                    confirmColor = '#28a745';
+                } else if (isUpdate) {
+                    title = 'Update Product?';
+                    text = 'Are you sure you want to update this product?';
+                    confirmText = 'Yes, Update';
+                    confirmColor = '#0d6efd';
+                }
+                
+                Swal.fire({
+                    title: title,
+                    text: text,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: confirmColor,
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: confirmText,
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        this.submit();
+                    }
+                });
+            });
+        }
+    });
     </script>
 
     <!-- Barcode Display Modal -->

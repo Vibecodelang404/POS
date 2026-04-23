@@ -625,7 +625,7 @@ function generateReceipt(orderData) {
     
     const receiptHTML = `
         <div style="max-width: 400px; margin: 0 auto; padding: 20px; text-align: center;">
-            <h4 style="margin: 0 0 5px 0;">PointShift</h4>
+            <h4 style="margin: 0 0 5px 0;">Kakai's POS</h4>
             <p style="margin: 0; font-size: 11px; line-height: 1.4;"><br>
             
             </p>

@@ -198,7 +198,7 @@ ob_start();
 <!-- Receipt Template (Hidden) -->
 <div class="receipt-print" id="receiptTemplate">
     <div style="text-align: center; margin-bottom: 10px;">
-        <strong style="font-size: 16px;">POINTSHIFT POS</strong><br>
+        <strong style="font-size: 16px;">KAKAI'S POS</strong><br>
         <small>Point of Sale System</small><br>
         <small>Tel: (123) 456-7890</small><br>
         <small>Email: info@jovespharmacy.com</small>

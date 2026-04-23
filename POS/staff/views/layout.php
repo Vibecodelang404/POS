@@ -12,8 +12,8 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.css" rel="stylesheet">
     <style>
         :root {
-            --brand: #b4232a;
-            --brand-deep: #7f1d1d;
+            --brand: #D4AF37;
+            --brand-deep: #AA8C2C;
             --ink: #172033;
             --muted: #667085;
             --line: rgba(23, 32, 51, 0.08);
@@ -25,13 +25,13 @@
             min-height: 100vh;
             color: var(--ink);
             background:
-                radial-gradient(circle at top right, rgba(180, 35, 42, 0.12), transparent 24%),
-                radial-gradient(circle at bottom left, rgba(37, 99, 235, 0.09), transparent 22%),
-                linear-gradient(180deg, #f6f8fc 0%, #eef2f8 100%);
+                radial-gradient(circle at top right, rgba(212, 175, 55, 0.12), transparent 24%),
+                radial-gradient(circle at bottom left, rgba(255, 255, 255, 0.15), transparent 22%),
+                linear-gradient(180deg, #fefef8 0%, #f5f5f0 100%);
             font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
         }
         .sidebar {
-            background: linear-gradient(180deg, rgba(127, 29, 29, 0.96) 0%, rgba(180, 35, 42, 0.92) 52%, rgba(23, 32, 51, 0.95) 100%);
+            background: linear-gradient(180deg, rgba(170, 140, 44, 0.98) 0%, rgba(212, 175, 55, 0.94) 52%, rgba(255, 255, 255, 0.97) 100%);
             backdrop-filter: blur(18px);
             min-height: 100vh;
             width: 274px;
@@ -44,18 +44,18 @@
         }
         .sidebar-header {
             padding: 2rem 1.6rem 1.5rem;
-            border-bottom: 1px solid rgba(255,255,255,0.12);
+            border-bottom: 1px solid rgba(170, 140, 44, 0.2);
             text-align: center;
         }
         .sidebar-header h4 {
-            color: white;
+            color: #172033;
             margin: 0;
             font-weight: 800;
             font-family: 'Manrope', sans-serif;
             letter-spacing: -0.03em;
         }
         .sidebar-header small {
-            color: rgba(255,255,255,0.72);
+            color: rgba(23, 32, 51, 0.7);
             letter-spacing: 0.08em;
             text-transform: uppercase;
         }
@@ -63,7 +63,7 @@
             padding: 1.25rem 0.9rem;
         }
         .sidebar-menu .nav-link {
-            color: rgba(255,255,255,0.82);
+            color: rgba(23, 32, 51, 0.8);
             padding: 0.88rem 1rem;
             border: none;
             border-radius: 16px;
@@ -75,10 +75,10 @@
         }
         .sidebar-menu .nav-link:hover,
         .sidebar-menu .nav-link.active {
-            background: rgba(255,255,255,0.12);
-            color: white;
+            background: rgba(212, 175, 55, 0.2);
+            color: #AA8C2C;
             transform: translateX(4px);
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+            box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.3);
         }
         .sidebar-menu .nav-link i {
             width: 20px;
@@ -208,7 +208,7 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <i class="fas fa-cash-register fa-2x text-white mb-2"></i>
-            <h4>PointShift</h4>
+            <h4>Kakai's POS</h4>
             <small>Staff Panel</small>
         </div>
         

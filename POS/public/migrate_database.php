@@ -7,7 +7,7 @@ require_once __DIR__ . '/../app/config.php';
 try {
     $db = Database::getInstance()->getConnection();
     
-    echo "<h2>PointShift POS Database Migration</h2>";
+    echo "<h2>Kakai's POS Database Migration</h2>";
     echo "<p>Checking and updating database structure...</p>";
     
     // Check if orders table has the required columns

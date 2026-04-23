@@ -310,7 +310,7 @@ ob_start();
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Store Name *</label>
-                        <input type="text" class="form-control" name="store_name" value="<?php echo htmlspecialchars($store_settings['store_name'] ?? 'PointShift POS'); ?>" required>
+                        <input type="text" class="form-control" name="store_name" value="<?php echo htmlspecialchars($store_settings['store_name'] ?? 'Kakai\'s POS'); ?>" required>
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Branch Name</label>
@@ -403,7 +403,7 @@ ob_start();
             </div>
             
             <div class="text-end">
-                <button type="submit" class="btn btn-danger btn-lg">
+                <button type="submit" class="btn btn-danger btn-lg" id="saveStoreSettingsBtn">
                     <i class="fas fa-save me-2"></i>Save Store Settings
                 </button>
             </div>
@@ -431,7 +431,7 @@ ob_start();
                         </div>
                         <form method="POST" class="d-inline">
                             <input type="hidden" name="action" value="delete_gcash_qr">
-                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete the GCash QR code?')">
+                            <button type="button" class="btn btn-danger btn-sm" onclick="deleteGCashQR()">
                                 <i class="fas fa-trash me-1"></i>Delete QR Code
                             </button>
                         </form>
@@ -759,17 +759,152 @@ function resetPassword(userId, username) {
 }
 
 function deleteUser(userId, username) {
-    if (confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.innerHTML = `
-            <input type="hidden" name="action" value="delete_user">
-            <input type="hidden" name="user_id" value="${userId}">
-        `;
-        document.body.appendChild(form);
-        form.submit();
-    }
+    Swal.fire({
+        title: 'Delete User?',
+        text: `Are you sure you want to delete user "${username}"? This action cannot be undone.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Delete',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="delete_user">
+                <input type="hidden" name="user_id" value="${userId}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
 }
+
+function deleteGCashQR() {
+    Swal.fire({
+        title: 'Delete QR Code?',
+        text: 'Are you sure you want to delete the GCash QR code?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Delete',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="delete_gcash_qr">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
+
+// Store Settings Form Confirmation
+document.addEventListener('DOMContentLoaded', function() {
+    const storeConfigForm = document.querySelector('form[action=""] input[value="update_store_config"]')?.closest('form');
+    if (!storeConfigForm) {
+        // Try alternative selector
+        const forms = document.querySelectorAll('form');
+        for (let form of forms) {
+            if (form.querySelector('input[value="update_store_config"]')) {
+                attachStoreConfigFormHandler(form);
+                break;
+            }
+        }
+    } else {
+        attachStoreConfigFormHandler(storeConfigForm);
+    }
+
+    function attachStoreConfigFormHandler(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Save Settings?',
+                text: 'Are you sure you want to save these store configuration changes?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Save',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.submit();
+                }
+            });
+        });
+    }
+
+    // User Create/Update/Reset Forms in Settings Tab
+    const tabPane = document.getElementById('users-tab');
+    if (tabPane) {
+        const forms = tabPane.querySelectorAll('form');
+        
+        forms.forEach(form => {
+            if (form.querySelector('input[value="create_user"]')) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    Swal.fire({
+                        title: 'Create User?',
+                        text: 'Are you sure you want to create this new user account?',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#dc3545',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Yes, Create',
+                        cancelButtonText: 'Cancel'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            this.submit();
+                        }
+                    });
+                });
+            } else if (form.querySelector('input[value="update_user"]')) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    Swal.fire({
+                        title: 'Update User?',
+                        text: 'Are you sure you want to update this user\'s information?',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#0d6efd',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Yes, Update',
+                        cancelButtonText: 'Cancel'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            this.submit();
+                        }
+                    });
+                });
+            } else if (form.querySelector('input[value="reset_password_user"]')) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    Swal.fire({
+                        title: 'Reset Password?',
+                        text: 'Are you sure you want to reset this user\'s password?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#ffc107',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Yes, Reset',
+                        cancelButtonText: 'Cancel'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            this.submit();
+                        }
+                    });
+                });
+            }
+        });
+    }
+});
 
 // Keep the active tab after form submission
 if (window.location.hash) {

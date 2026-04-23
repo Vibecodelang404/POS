@@ -101,7 +101,7 @@ export default function ScannerScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>PointShift Scanner</Text>
+          <Text style={styles.headerTitle}>Kakai's POS Scanner</Text>
           <Text style={styles.headerSubtitle}>
             {user ? `Welcome, ${user.first_name}!` : 'Scan Product Barcode'}
           </Text>

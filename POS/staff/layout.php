@@ -72,6 +72,9 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             padding: 1rem 1.5rem;
             border-bottom: 1px solid #e9ecef;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
         .content-card {
             background: white;
@@ -144,7 +147,7 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <i class="fas fa-cash-register fa-2x text-white mb-2"></i>
-            <h4>PointShift</h4>
+            <h4>Kakai's POS</h4>
             <small>Staff Inventory Panel</small>
             <div class="role-badge">Staff</div>
         </div>
@@ -216,6 +219,9 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <script>
         // Sidebar toggle for mobile
         document.getElementById('sidebar-toggle')?.addEventListener('click', function() {

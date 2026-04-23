@@ -495,17 +495,100 @@ function resetPassword(userId, username) {
 }
 
 function deleteUser(userId, username) {
-    if (confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.innerHTML = `
-            <input type="hidden" name="action" value="delete">
-            <input type="hidden" name="user_id" value="${userId}">
-        `;
-        document.body.appendChild(form);
-        form.submit();
-    }
+    Swal.fire({
+        title: 'Delete User?',
+        text: `Are you sure you want to delete user "${username}"? This action cannot be undone.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Delete',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="user_id" value="${userId}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
 }
+
+// Add User Form Confirmation
+document.addEventListener('DOMContentLoaded', function() {
+    const addUserModal = document.getElementById('addUserModal');
+    if (addUserModal) {
+        const addForm = addUserModal.querySelector('form');
+        addForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Create User?',
+                text: 'Are you sure you want to create this new user account?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Create',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.submit();
+                }
+            });
+        });
+    }
+
+    // Edit User Form Confirmation
+    const editUserModal = document.getElementById('editUserModal');
+    if (editUserModal) {
+        const editForm = editUserModal.querySelector('form');
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Update User?',
+                text: 'Are you sure you want to update this user\'s information?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#0d6efd',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Update',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.submit();
+                }
+            });
+        });
+    }
+
+    // Reset Password Form Confirmation
+    const resetPasswordModal = document.getElementById('resetPasswordModal');
+    if (resetPasswordModal) {
+        const resetForm = resetPasswordModal.querySelector('form');
+        resetForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('reset_username').textContent;
+            Swal.fire({
+                title: 'Reset Password?',
+                text: `Are you sure you want to reset the password for "${username}"?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ffc107',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Reset',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.submit();
+                }
+            });
+        });
+    }
+});
 </script>
 
 <?php

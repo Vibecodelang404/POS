@@ -64,7 +64,7 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.logoContainer}>
             <Text style={styles.logoText}>📦</Text>
           </View>
-          <Text style={styles.title}>PointShift</Text>
+          <Text style={styles.title}>Kakai's POS</Text>
           <Text style={styles.subtitle}>Barcode Scanner</Text>
         </View>
 
@@ -109,7 +109,7 @@ export default function LoginScreen({ navigation }) {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>PointShift POS System v1.0</Text>
+          <Text style={styles.footerText}>Kakai's POS System v1.0</Text>
         </View>
       </View>
     </KeyboardAvoidingView>

@@ -198,7 +198,7 @@ ob_start();
     <div class="tab-pane fade show active" id="profile-settings" role="tabpanel">
         <div class="settings-section">
             <h5><i class="fas fa-user-edit me-2"></i>Update Profile Information</h5>
-            <form method="POST">
+            <form method="POST" id="profileForm">
                 <input type="hidden" name="action" value="update_profile">
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -268,7 +268,26 @@ ob_start();
 </div>
 
 <script>
-// Password validation
+// Update Profile Form Confirmation
+document.getElementById('profileForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    Swal.fire({
+        title: 'Update Profile?',
+        text: 'Are you sure you want to update your profile information?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Update',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            this.submit();
+        }
+    });
+});
+
+// Password validation and confirmation
 document.getElementById('passwordForm')?.addEventListener('submit', function(e) {
     const newPass = document.getElementById('new_password').value;
     const confirmPass = document.getElementById('confirm_password').value;
@@ -284,6 +303,22 @@ document.getElementById('passwordForm')?.addEventListener('submit', function(e) 
         toastr.error('Password must be at least 6 characters long!', 'Password Too Short');
         return false;
     }
+
+    e.preventDefault();
+    Swal.fire({
+        title: 'Change Password?',
+        text: 'Are you sure you want to change your password?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ffc107',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Change',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            this.submit();
+        }
+    });
 });
 
 // Keep the active tab after form submission

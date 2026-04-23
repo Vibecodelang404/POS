@@ -412,6 +412,28 @@ ob_start();
         This page shows only your inventory changes.
     </div>
 </div>
+
+<script>
+// Create Report Form Confirmation
+document.getElementById('reportForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    Swal.fire({
+        title: 'Create Report?',
+        text: 'Are you sure you want to create this inventory report? This will be recorded in the system.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Create',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            this.submit();
+        }
+    });
+});
+</script>
+
 <?php
 $content = ob_get_clean();
 include __DIR__ . '/views/layout.php';

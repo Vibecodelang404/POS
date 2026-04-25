@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 21, 2026 at 11:06 AM
+-- Generation Time: Apr 25, 2026 at 02:34 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -65,6 +65,15 @@ CREATE TABLE `inventory_reports` (
   `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `inventory_reports`
+--
+
+INSERT INTO `inventory_reports` (`id`, `date`, `product_id`, `user_id`, `change_type`, `quantity`, `quantity_changed`, `previous_quantity`, `new_quantity`, `remarks`, `created_at`) VALUES
+(1, '2026-04-24', 5, 1, 'Removed', 40, 40, 41, 1, 'Stock removed by admin. Previous: 41, New: 1', '2026-04-24 11:04:42'),
+(2, '2026-04-24', 5, 1, 'Added', 9, 9, 1, 10, 'Stock added by admin. Previous: 1, New: 10', '2026-04-24 11:05:44'),
+(3, '2026-04-24', 5, 1, 'Added', 10, 10, 10, 20, 'Stock added by admin. Previous: 10, New: 20', '2026-04-24 11:05:52');
+
 -- --------------------------------------------------------
 
 --
@@ -118,7 +127,8 @@ INSERT INTO `orders` (`id`, `order_number`, `user_id`, `total_amount`, `subtotal
 (11, 'ORD-20260421-157', 2, 38.08, 34.00, 0.00, 0.00, 4.08, 'cash', 50.00, 'completed', '2026-04-21 07:38:31'),
 (12, 'ORD-20260421-578', 2, 156.80, 140.00, 0.00, 0.00, 16.80, 'gcash', 200.00, 'completed', '2026-04-21 08:14:09'),
 (13, 'ORD-20260421-946', 2, 181.44, 162.00, 0.00, 0.00, 19.44, 'gcash', 200.00, 'completed', '2026-04-21 08:14:51'),
-(14, 'ORD-20260421-863', 2, 156.80, 140.00, 0.00, 0.00, 16.80, 'gcash', 156.80, 'completed', '2026-04-21 08:41:58');
+(14, 'ORD-20260421-863', 2, 156.80, 140.00, 0.00, 0.00, 16.80, 'gcash', 156.80, 'completed', '2026-04-21 08:41:58'),
+(15, 'ORD-20260423-432', 2, 100.00, 89.29, 0.00, 0.00, 10.71, 'cash', 100.00, 'completed', '2026-04-23 13:25:18');
 
 -- --------------------------------------------------------
 
@@ -157,7 +167,8 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `unit_pri
 (15, 12, 16, 1, 140.00, 140.00),
 (16, 13, 12, 1, 22.00, 22.00),
 (17, 13, 16, 1, 140.00, 140.00),
-(18, 14, 16, 1, 140.00, 140.00);
+(18, 14, 16, 1, 140.00, 140.00),
+(19, 15, 5, 1, 100.00, 100.00);
 
 -- --------------------------------------------------------
 
@@ -216,7 +227,7 @@ INSERT INTO `products` (`id`, `name`, `sku`, `category_id`, `price`, `stock_quan
 (2, 'V-Cut Spicy BBQ 60g', 'CHP-VCUT-BBQ-60', 1, 28.00, 100, 15, '4800016222222', '2026-10-15', 'Spicy barbecue flavored potato chips', 'active', '2026-04-19 08:24:27', '2026-04-19 08:24:27', 1),
 (3, 'Pic-A 3-in-1 90g', 'CHP-PICA-3IN1-90', 1, 38.00, 80, 15, '4800016333333', '2026-11-20', 'Mix of Piattos, Nova, and Tortillos', 'active', '2026-04-19 08:24:27', '2026-04-19 08:24:27', 1),
 (4, 'Boy Bawang Garlic 100g', 'CRN-BYBWG-GRL-100', 2, 25.00, 199, 30, '4800016444444', '2027-01-20', 'Fried cornick with garlic flavor', 'active', '2026-04-19 08:24:27', '2026-04-19 09:56:04', 1),
-(5, 'Boy Bawang Garlic (Tie/Wholesale - 20x20g)', 'CRN-BYBWG-TIE-20', 2, 100.00, 42, 10, '4800016555555', '2027-01-20', 'Wholesale tie of small Boy Bawang packs', 'active', '2026-04-19 08:24:27', '2026-04-21 07:03:11', 1),
+(5, 'Boy Bawang Garlic (Tie/Wholesale - 20x20g)', 'CRN-BYBWG-TIE-20', 2, 100.00, 20, 10, '4800016555555', '2027-01-20', 'Wholesale tie of small Boy Bawang packs', 'active', '2026-04-19 08:24:27', '2026-04-24 11:05:52', 1),
 (6, 'Chippy BBQ 110g', 'CRN-CHPY-BBQ-110', 2, 32.00, 119, 20, '4800016666666', '2026-11-30', 'Classic BBQ flavored corn chips', 'active', '2026-04-19 08:24:27', '2026-04-19 09:56:04', 1),
 (7, 'Nova Multigrain Country Cheddar 78g', 'CRN-NOVA-CDB-78', 2, 34.00, 79, 15, '4800016777777', '2026-09-10', 'Multigrain snacks', 'active', '2026-04-19 08:24:27', '2026-04-21 07:38:31', 1),
 (8, 'Nagaraya Cracker Nuts Original 160g', 'NUT-NGRY-ORG-160', 3, 40.00, 50, 10, '4800016888888', '2027-03-15', 'Original butter flavor cracker nuts', 'active', '2026-04-19 08:24:27', '2026-04-19 08:24:27', 1),
@@ -290,9 +301,19 @@ CREATE TABLE `store_settings` (
 INSERT INTO `store_settings` (`id`, `setting_key`, `setting_value`, `setting_type`, `created_at`, `updated_at`) VALUES
 (1, 'store_name', 'Pinoy Chichirya Wholesale & Retail', 'text', '2026-04-19 07:40:09', '2026-04-19 07:40:09'),
 (2, 'currency', 'PHP', 'text', '2026-04-19 07:40:09', '2026-04-19 07:40:09'),
-(3, 'tax_rate', '12', 'number', '2026-04-19 07:40:09', '2026-04-19 07:40:09'),
-(4, 'receipt_header', 'Pinoy Chichirya Wholesale & Retail\nManila, Philippines', 'text', '2026-04-19 07:40:09', '2026-04-19 07:40:09'),
-(5, 'receipt_footer', 'Maraming Salamat Po! Balik kayo.', 'text', '2026-04-19 07:40:09', '2026-04-19 07:40:09');
+(3, 'tax_rate', '12', 'number', '2026-04-19 07:40:09', '2026-04-25 00:28:32'),
+(4, 'receipt_header', 'Pinoy Chichirya Wholesale & RetailManila, Philippines', 'text', '2026-04-19 07:40:09', '2026-04-25 00:26:50'),
+(5, 'receipt_footer', 'Maraming Salamat Po! Balik kayo.', 'text', '2026-04-19 07:40:09', '2026-04-19 07:40:09'),
+(7, 'store_branch', '', 'text', '2026-04-25 00:26:47', '2026-04-25 00:26:47'),
+(8, 'store_address', 'asdasdaasd', 'text', '2026-04-25 00:26:48', '2026-04-25 00:26:48'),
+(9, 'store_phone', 'asdasdas', 'text', '2026-04-25 00:26:48', '2026-04-25 00:26:48'),
+(10, 'store_email', 'asdas@gmail.com', 'text', '2026-04-25 00:26:48', '2026-04-25 00:26:48'),
+(11, 'business_hours_open', '08:00', 'text', '2026-04-25 00:26:49', '2026-04-25 00:26:49'),
+(12, 'business_hours_close', '20:00', 'text', '2026-04-25 00:26:49', '2026-04-25 00:26:49'),
+(13, 'business_days', 'Monday to Sunday', 'text', '2026-04-25 00:26:49', '2026-04-25 00:26:49'),
+(17, 'currency_symbol', '₱', 'text', '2026-04-25 00:26:50', '2026-04-25 00:26:50'),
+(18, 'receipt_show_logo', '1', 'text', '2026-04-25 00:26:50', '2026-04-25 00:26:50'),
+(19, 'receipt_show_cashier', '1', 'text', '2026-04-25 00:26:51', '2026-04-25 00:26:51');
 
 -- --------------------------------------------------------
 
@@ -319,7 +340,7 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`id`, `username`, `email`, `password`, `role`, `first_name`, `last_name`, `status`, `created_at`, `updated_at`) VALUES
 (1, 'admin_john', 'admin@pointshift.com', '$2y$10$rsModrThMFb0L0qncLZnBOR7DYPySmOvO590EA/AvBPqz4Pl63QG2', 'admin', 'John', 'Doe', 'active', '2026-04-19 08:24:27', '2026-04-21 00:55:53'),
-(2, 'cashier_jane', 'jane.s@pointshift.com', '$2y$10$Vly..uwx/6NXJyG08HbbyOl3U6N09ZUs0xmTxtyyqkjNaJwH5N1ve', 'cashier', 'Jane', 'Smith', 'active', '2026-04-19 08:26:49', '2026-04-21 06:36:01'),
+(2, 'cashier_jane', 'kim@gmail.com', '$2y$10$Vly..uwx/6NXJyG08HbbyOl3U6N09ZUs0xmTxtyyqkjNaJwH5N1ve', 'cashier', 'Kim', 'Dipasupil', 'active', '2026-04-19 08:26:49', '2026-04-23 07:08:08'),
 (3, 'cashier_mark', 'mark.t@pointshift.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'cashier', 'Mark', 'Taylor', 'active', '2026-04-19 08:26:49', '2026-04-19 08:26:49'),
 (4, 'staff_sarah', 'sarah.w@pointshift.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'staff', 'Sarah', 'Williams', 'active', '2026-04-19 08:26:49', '2026-04-19 08:26:49'),
 (5, 'cashier_alex', 'alex.b@pointshift.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'cashier', 'Alex', 'Brown', 'inactive', '2026-04-19 08:26:49', '2026-04-19 08:26:49');
@@ -433,7 +454,7 @@ ALTER TABLE `categories`
 -- AUTO_INCREMENT for table `inventory_reports`
 --
 ALTER TABLE `inventory_reports`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `messages`
@@ -445,13 +466,13 @@ ALTER TABLE `messages`
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
 -- AUTO_INCREMENT for table `payment_qrcodes`
@@ -481,7 +502,7 @@ ALTER TABLE `shift_assignments`
 -- AUTO_INCREMENT for table `store_settings`
 --
 ALTER TABLE `store_settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `users`

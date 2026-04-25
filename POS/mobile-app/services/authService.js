@@ -78,7 +78,7 @@ class AuthService {
       this.pemToArrayBuffer(publicKeyPem),
       {
         name: 'RSA-OAEP',
-        hash: 'SHA-256',
+        hash: 'SHA-1',
       },
       false,
       ['encrypt']

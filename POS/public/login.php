@@ -196,7 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 pemToArrayBuffer(LOGIN_PUBLIC_KEY),
                 {
                     name: 'RSA-OAEP',
-                    hash: 'SHA-256'
+                    hash: 'SHA-1'
                 },
                 false,
                 ['encrypt']

@@ -51,28 +51,6 @@ CREATE TABLE IF NOT EXISTS `inventory_reports` (
   CONSTRAINT `inventory_reports_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
--- Dumping structure for table pointshift_pos.messages
-CREATE TABLE IF NOT EXISTS `messages` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `sender_id` int NOT NULL,
-  `recipient_id` int DEFAULT NULL,
-  `subject` varchar(255) NOT NULL,
-  `message` text NOT NULL,
-  `parent_message_id` int DEFAULT NULL COMMENT 'For threaded conversations',
-  `is_read` tinyint(1) DEFAULT '0',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `sender_id` (`sender_id`),
-  KEY `recipient_id` (`recipient_id`),
-  KEY `parent_message_id` (`parent_message_id`),
-  CONSTRAINT `messages_ibfk_1` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`),
-  CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`recipient_id`) REFERENCES `users` (`id`),
-  CONSTRAINT `messages_ibfk_3` FOREIGN KEY (`parent_message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
 -- Dumping structure for table pointshift_pos.orders
 CREATE TABLE IF NOT EXISTS `orders` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -147,51 +125,6 @@ CREATE TABLE IF NOT EXISTS `products` (
   CONSTRAINT `fk_products_last_updated_by` FOREIGN KEY (`last_updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `products_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=79 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- Dumping structure for table pointshift_pos.shifts
-CREATE TABLE IF NOT EXISTS `shifts` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `shift_name` varchar(100) NOT NULL,
-  `shift_date` date NOT NULL,
-  `start_time` time NOT NULL,
-  `end_time` time NOT NULL,
-  `description` text,
-  `location` varchar(255) DEFAULT NULL,
-  `max_employees` int DEFAULT '10',
-  `status` enum('scheduled','in-progress','completed','cancelled') DEFAULT 'scheduled',
-  `created_by` int NOT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `created_by` (`created_by`),
-  KEY `shift_date` (`shift_date`),
-  KEY `status` (`status`),
-  CONSTRAINT `shifts_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- Dumping structure for table pointshift_pos.shift_assignments
-CREATE TABLE IF NOT EXISTS `shift_assignments` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `shift_id` int NOT NULL,
-  `user_id` int NOT NULL,
-  `role` enum('supervisor','regular') DEFAULT 'regular',
-  `status` enum('assigned','confirmed','declined','completed','no-show') DEFAULT 'assigned',
-  `notes` text,
-  `assigned_by` int NOT NULL,
-  `assigned_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `unique_shift_user` (`shift_id`,`user_id`),
-  KEY `shift_id` (`shift_id`),
-  KEY `user_id` (`user_id`),
-  KEY `assigned_by` (`assigned_by`),
-  CONSTRAINT `shift_assignments_ibfk_1` FOREIGN KEY (`shift_id`) REFERENCES `shifts` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `shift_assignments_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `shift_assignments_ibfk_3` FOREIGN KEY (`assigned_by`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 
 -- Dumping structure for table pointshift_pos.store_settings
 CREATE TABLE IF NOT EXISTS `store_settings` (

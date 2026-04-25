@@ -3,10 +3,16 @@ require_once __DIR__ . '/../app/config.php';
 requireAdmin(); // Only admin can access inventory
 
 $inventoryController = new InventoryController();
+$message = '';
+$message_type = '';
+$csrf_token = csrfToken();
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action'])) {
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        $message = 'Security validation failed. Please refresh the page and try again.';
+        $message_type = 'danger';
+    } elseif (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'add':
                 $inventoryController->addProduct($_POST);
@@ -26,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $search = $_GET['search'] ?? '';
 $category_id = $_GET['category_id'] ?? '';
 $stock_filter = $_GET['stock_filter'] ?? '';
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 15;
 $offset = ($page - 1) * $perPage;
 
@@ -40,7 +46,7 @@ $categories = $inventoryController->getAllCategories();
 // Get expiring products (within 7 days) and expired products
 $expiringProducts = [];
 $expiredProducts = [];
-foreach ($products as $product) {
+foreach ($allProducts as $product) {
     if (!empty($product['expiry'])) {
         $expiryDate = new DateTime($product['expiry']);
         $today = new DateTime();
@@ -61,6 +67,13 @@ $page_title = 'Inventory Management';
 
 ob_start();
 ?>
+
+<?php if ($message): ?>
+<div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show" role="alert">
+    <?php echo htmlspecialchars($message); ?>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
 
 <!-- Expiry Alerts -->
 <?php if (!empty($expiredProducts)): ?>
@@ -173,15 +186,10 @@ ob_start();
     <div class="col-12">
         <div class="content-card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Inventory Management</h5>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-danger btn-custom" data-bs-toggle="modal" data-bs-target="#addProductModal">
-                        <i class="fas fa-plus me-2"></i>Add
-                    </button>
-                    <button class="btn btn-outline-danger btn-custom">
-                        <i class="fas fa-download me-2"></i>Export
-                    </button>
-                </div>
+                <h5 class="mb-0">Inventory</h5>
+                <button class="btn btn-danger btn-custom" data-bs-toggle="modal" data-bs-target="#addProductModal">
+                    <i class="fas fa-plus me-2"></i>Add
+                </button>
             </div>
             <div class="card-body">
                 <!-- Search and Filter Bar -->
@@ -355,10 +363,23 @@ ob_start();
             <form method="POST">
                 <div class="modal-body">
                     <input type="hidden" name="action" value="add">
+                    <?php echo csrfInput(); ?>
                     
                     <div class="mb-3">
                         <label class="form-label">Product Name</label>
                         <input type="text" name="name" class="form-control" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select name="category_id" class="form-select">
+                            <option value="">Uncategorized</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?php echo $category['id']; ?>">
+                                    <?php echo htmlspecialchars($category['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     
                     <div class="mb-3">
@@ -403,10 +424,23 @@ ob_start();
                 <div class="modal-body">
                     <input type="hidden" name="action" value="update">
                     <input type="hidden" name="id" id="editId">
+                    <?php echo csrfInput(); ?>
                     
                     <div class="mb-3">
                         <label class="form-label">Product Name</label>
                         <input type="text" name="name" id="editName" class="form-control" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select name="category_id" id="editCategory" class="form-select">
+                            <option value="">Uncategorized</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?php echo $category['id']; ?>">
+                                    <?php echo htmlspecialchars($category['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     
                     <div class="mb-3">
@@ -440,9 +474,12 @@ ob_start();
 </div>
 
 <script>
+const csrfToken = <?php echo json_encode($csrf_token); ?>;
+
 function editProduct(product) {
     document.getElementById('editId').value = product.id;
     document.getElementById('editName').value = product.name;
+    document.getElementById('editCategory').value = product.category_id || '';
     document.getElementById('editPrice').value = product.price;
     document.getElementById('editStock').value = product.stock_quantity;
     document.getElementById('editBarcode').value = product.barcode || '';
@@ -468,6 +505,7 @@ function deleteProduct(id) {
             form.innerHTML = `
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" value="${id}">
+                <input type="hidden" name="csrf_token" value="${csrfToken}">
             `;
             document.body.appendChild(form);
             form.submit();

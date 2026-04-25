@@ -102,7 +102,7 @@ if (isLoggedIn()) {
                             </a>
                         </div>
                         
-                        <div class="demo-credentials">
+                        <!--<div class="demo-credentials">
                             <h6 class="text-dark mb-3">Demo Accounts:</h6>
                             <div class="row">
                                 <div class="col-md-6">
@@ -122,7 +122,7 @@ if (isLoggedIn()) {
                                     </small>
                                 </div>
                             </div>
-                        </div>
+                        </div>-->
                     </div>
                 </div>
             </div>

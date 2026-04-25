@@ -41,8 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $items = json_decode($_POST['items'], true);
             $amount_received = floatval($_POST['amount_received']);
             $payment_method = $_POST['payment_method'] ?? 'cash';
-            $discount_percent = floatval($_POST['discount_percent'] ?? 0);
-            $result = $posController->createOrder($items, $payment_method, $amount_received, $discount_percent);
+            $discount_amount = floatval($_POST['discount_amount'] ?? 0);
+            $result = $posController->createOrder($items, $payment_method, $amount_received, $discount_amount);
             echo json_encode($result);
             exit();
             
@@ -63,14 +63,14 @@ $title = 'Point of Sale';
 ob_start();
 ?>
 
-<div class="row">
+<div class="row g-3">
     <!-- Products Section (Right Side on Desktop) -->
-    <div class="col-lg-7 order-lg-2">
+    <div class="col-lg-9 order-lg-2">
         <div class="card h-100">
             <div class="card-header py-2">
                 <h6 class="mb-0">Products</h6>
             </div>
-            <div class="card-body p-2">
+            <div class="card-body p-3">
                 <!-- Search Bar -->
                 <div class="mb-2">
                     <input type="text" id="product-search" class="form-control form-control-sm" placeholder="Search by name or code..." value="<?php echo htmlspecialchars($search); ?>">
@@ -88,8 +88,8 @@ ob_start();
                 </div>
                 
                 <!-- Products Grid -->
-                <div style="max-height: calc(100vh - 280px); overflow-y: auto;">
-                    <div class="row g-2">
+                <div style="max-height: calc(100vh - 235px); overflow-y: auto;">
+                    <div class="row g-3">
                     <?php if (empty($products)): ?>
                     <div class="col-12">
                         <div class="text-center py-5">
@@ -99,16 +99,16 @@ ob_start();
                     </div>
                     <?php else: ?>
                     <?php foreach ($products as $product): ?>
-                    <div class="col-md-6 col-lg-4 col-xl-3">
-                        <div class="product-card p-2 border rounded" onclick="addToCart(<?php echo htmlspecialchars(json_encode($product)); ?>)" style="cursor: pointer; transition: all 0.2s;">
+                    <div class="col-md-6 col-lg-4">
+                        <div class="product-card p-3 border rounded" onclick="addToCart(<?php echo htmlspecialchars(json_encode($product)); ?>)" style="cursor: pointer; transition: all 0.2s; min-height: 112px;">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div class="flex-grow-1">
-                                    <h6 class="mb-1" style="font-size: 0.8rem; line-height: 1.2;"><?php echo htmlspecialchars($product['name']); ?></h6>
-                                    <div class="text-success fw-bold" style="font-size: 0.85rem;"><?php echo formatCurrency($product['price']); ?></div>
-                                    <small class="text-muted" style="font-size: 0.7rem;">Stock: <?php echo $product['stock_quantity']; ?></small>
+                                    <h6 class="mb-2" style="font-size: 0.92rem; line-height: 1.3;"><?php echo htmlspecialchars($product['name']); ?></h6>
+                                    <div class="text-success fw-bold" style="font-size: 1rem;"><?php echo formatCurrency($product['price']); ?></div>
+                                    <small class="text-muted" style="font-size: 0.78rem;">Stock: <?php echo $product['stock_quantity']; ?></small>
                                 </div>
-                                <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); addToCart(<?php echo htmlspecialchars(json_encode($product)); ?>)" style="padding: 2px 6px;">
-                                    <i class="fas fa-plus" style="font-size: 0.7rem;"></i>
+                                <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); addToCart(<?php echo htmlspecialchars(json_encode($product)); ?>)" style="padding: 5px 8px;">
+                                    <i class="fas fa-plus" style="font-size: 0.82rem;"></i>
                                 </button>
                             </div>
                         </div>
@@ -122,14 +122,14 @@ ob_start();
     </div>
     
     <!-- Shopping Cart Section (Left Side on Desktop) -->
-    <div class="col-lg-5 order-lg-1">
+    <div class="col-lg-3 order-lg-1">
         <div class="card h-100">
             <div class="card-header py-2">
                 <h6 class="mb-0">Shopping Cart</h6>
             </div>
             <div class="card-body p-2 d-flex flex-column" style="max-height: calc(100vh - 200px); overflow-y: auto;">
                 <!-- Cart Items -->
-                <div id="cart-items" style="max-height: 220px; overflow-y: auto; margin-bottom: 12px; background: #f8f9fa; border-radius: 6px; padding: 8px;">
+                <div id="cart-items" style="max-height: 165px; overflow-y: auto; margin-bottom: 8px; background: #f8f9fa; border-radius: 6px; padding: 8px;">
                     <div class="table-responsive">
                         <table class="table table-sm mb-0" style="font-size: 0.75rem;">
                             <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
@@ -152,31 +152,26 @@ ob_start();
                 </div>
                 
                 <!-- Cart Summary (Compact) -->
-                <div class="border-top pt-2" style="background: #f8f9fa; border-radius: 6px; padding: 10px; margin-bottom: 10px;">
+                <div class="border-top pt-2" style="background: #f8f9fa; border-radius: 6px; padding: 8px; margin-bottom: 8px;">
                     <div class="row g-1 mb-1">
                         <div class="col-6"><small style="font-weight: 500;">Subtotal:</small></div>
                         <div class="col-6 text-end"><small id="subtotal" style="font-weight: 600;">₱0.00</small></div>
                     </div>
                     <div class="row g-1 mb-1 align-items-center">
                         <div class="col-6">
-                            <small style="font-weight: 500;">Discount:</small>
-                            <input type="number" id="discount" class="form-control form-control-sm d-inline" style="width: 45px; height: 22px; font-size: 0.7rem; padding: 2px 4px;" value="0" min="0" max="100">
-                            <small>%</small>
+                            <small style="font-weight: 500;">Discount (<?php echo chr(8369); ?>):</small>
+                            <input type="number" id="discount" class="form-control form-control-sm d-inline" style="width: 68px; height: 22px; font-size: 0.7rem; padding: 2px 4px;" value="0" min="0" step="0.01">
                         </div>
                         <div class="col-6 text-end"><small id="discount-amount" style="font-weight: 600; color: #198754;">-₱0.00</small></div>
                     </div>
-                    <div class="row g-1 mb-2" style="border-bottom: 1px solid #dee2e6; padding-bottom: 8px;">
-                        <div class="col-6"><small style="font-weight: 500;">Tax (12%):</small></div>
-                        <div class="col-6 text-end"><small id="tax" style="font-weight: 600;">₱0.00</small></div>
-                    </div>
-                    <div class="row g-1">
+                    <div class="row g-1 pt-1" style="border-top: 1px solid #dee2e6;">
                         <div class="col-6"><strong style="font-size: 1.1rem; color: #212529;">TOTAL:</strong></div>
-                        <div class="col-6 text-end"><strong id="total" style="font-size: 1.1rem; color: #dc3545;">₱0.00</strong></div>
+                        <div class="col-6 text-end"><strong id="total" style="font-size: 1.1rem; color: var(--accent-deep);">₱0.00</strong></div>
                     </div>
                 </div>
                 
                 <!-- Payment Details -->
-                <div style="background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px; margin-bottom: 10px;">
+                <div style="background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 8px; margin-bottom: 8px;">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
                             <label style="font-size: 0.75rem; font-weight: 600; color: #495057; margin-bottom: 4px; display: block;">Payment Method:</label>
@@ -281,7 +276,7 @@ ob_start();
 
 <script>
 let cart = [];
-let discountPercent = 0;
+let discountAmount = 0;
 let gcashPaymentConfirmed = false;
 const pesoSign = String.fromCharCode(8369);
 
@@ -452,14 +447,11 @@ function updateCartDisplay() {
 
 function updateTotals() {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const discount = (subtotal * discountPercent) / 100;
-    const discountedSubtotal = subtotal - discount;
-    const tax = discountedSubtotal * 0.12;
-    const total = discountedSubtotal + tax;
+    const discount = Math.min(Math.max(discountAmount, 0), subtotal);
+    const total = subtotal - discount;
     
     document.getElementById('subtotal').textContent = '₱' + subtotal.toFixed(2);
     document.getElementById('discount-amount').textContent = '-₱' + discount.toFixed(2);
-    document.getElementById('tax').textContent = '₱' + tax.toFixed(2);
     document.getElementById('total').textContent = '₱' + total.toFixed(2);
     
     if (isGcashSelected()) {
@@ -492,7 +484,7 @@ function validatePayment() {
 
 // Discount input handler
 document.getElementById('discount').addEventListener('input', function() {
-    discountPercent = parseFloat(this.value) || 0;
+    discountAmount = parseFloat(this.value) || 0;
     updateTotals();
     calculateChange();
 });
@@ -556,10 +548,8 @@ function calculateChange() {
 document.getElementById('complete-sale').addEventListener('click', function() {
     const amountReceived = parseFloat(document.getElementById('amount-received').value);
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const discount = (subtotal * discountPercent) / 100;
-    const discountedSubtotal = subtotal - discount;
-    const tax = discountedSubtotal * 0.12;
-    const total = discountedSubtotal + tax;
+    const discount = Math.min(Math.max(discountAmount, 0), subtotal);
+    const total = subtotal - discount;
     
     if (!amountReceived || amountReceived < total) {
         toastr.error(`Amount received (₱${amountReceived ? amountReceived.toFixed(2) : '0.00'}) is less than total amount (₱${total.toFixed(2)})!`, 'Insufficient Payment');
@@ -574,7 +564,7 @@ document.getElementById('complete-sale').addEventListener('click', function() {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `action=complete_sale&items=${encodeURIComponent(JSON.stringify(cart))}&amount_received=${amountReceived}&payment_method=${paymentMethod}&discount_percent=${discountPercent}`
+        body: `action=complete_sale&items=${encodeURIComponent(JSON.stringify(cart))}&amount_received=${amountReceived}&payment_method=${paymentMethod}&discount_amount=${discount}`
     })
     .then(response => response.json())
     .then(data => {
@@ -587,7 +577,7 @@ document.getElementById('complete-sale').addEventListener('click', function() {
             updateCartDisplay();
             document.getElementById('amount-received').value = '';
             document.getElementById('discount').value = '0';
-            discountPercent = 0;
+            discountAmount = 0;
             document.getElementById('change-display').style.display = 'none';
             
             // Show receipt modal
@@ -606,6 +596,9 @@ function generateReceipt(orderData) {
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
     
     const subtotal = orderData.subtotal || 0;
+    const netSales = orderData.net_sales || 0;
+    const discount = orderData.discount || 0;
+    const tax = orderData.tax || 0;
     const total = orderData.total || 0;
     const amountPaid = parseFloat(document.getElementById('amount-received').value) || 0;
     const change = orderData.change || (amountPaid - total);
@@ -657,6 +650,18 @@ function generateReceipt(orderData) {
                 <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                     <span>Subtotal:</span>
                     <span>₱${subtotal.toFixed(2)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>Discount:</span>
+                    <span>-â‚±${discount.toFixed(2)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>VATable Sales:</span>
+                    <span>â‚±${netSales.toFixed(2)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span>VAT Included (12%):</span>
+                    <span>â‚±${tax.toFixed(2)}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #000;">
                     <strong style="font-size: 15px;">TOTAL:</strong>
@@ -726,14 +731,11 @@ const gcashQRModalElement = document.getElementById('gcashQRModal');
 
 updateTotals = function() {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const discount = (subtotal * discountPercent) / 100;
-    const discountedSubtotal = subtotal - discount;
-    const tax = discountedSubtotal * 0.12;
-    const total = discountedSubtotal + tax;
+    const discount = Math.min(Math.max(discountAmount, 0), subtotal);
+    const total = subtotal - discount;
 
     document.getElementById('subtotal').textContent = 'â‚±' + subtotal.toFixed(2);
     document.getElementById('discount-amount').textContent = '-â‚±' + discount.toFixed(2);
-    document.getElementById('tax').textContent = 'â‚±' + tax.toFixed(2);
     document.getElementById('total').textContent = 'â‚±' + total.toFixed(2);
 
     if (isGcashSelected()) {
@@ -853,14 +855,11 @@ document.getElementById('complete-sale').addEventListener('click', function(e) {
 
 updateTotals = function() {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const discount = (subtotal * discountPercent) / 100;
-    const discountedSubtotal = subtotal - discount;
-    const tax = discountedSubtotal * 0.12;
-    const total = discountedSubtotal + tax;
+    const discount = Math.min(Math.max(discountAmount, 0), subtotal);
+    const total = subtotal - discount;
 
     document.getElementById('subtotal').textContent = pesoSign + subtotal.toFixed(2);
     document.getElementById('discount-amount').textContent = '-' + pesoSign + discount.toFixed(2);
-    document.getElementById('tax').textContent = pesoSign + tax.toFixed(2);
     document.getElementById('total').textContent = pesoSign + total.toFixed(2);
 
     if (isGcashSelected()) {
@@ -951,8 +950,8 @@ validatePayment();
 }
 
 #complete-sale:disabled {
-    background-color: #dc3545 !important;
-    border-color: #dc3545 !important;
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep)) !important;
+    border-color: var(--accent-deep) !important;
     opacity: 0.7 !important;
     cursor: not-allowed !important;
 }
@@ -1017,7 +1016,7 @@ validatePayment();
 }
 
 @media (max-width: 991px) {
-    .col-lg-5, .col-lg-7 {
+    .col-lg-3, .col-lg-9 {
         margin-bottom: 15px;
     }
     
@@ -1034,6 +1033,11 @@ validatePayment();
     .col-md-6 {
         flex: 0 0 50%;
         max-width: 50%;
+    }
+
+    .product-card {
+        min-height: auto !important;
+        padding: 0.75rem !important;
     }
     
     .product-card h6 {

@@ -7,7 +7,7 @@ $page_title = 'Inventory Stock Reports';
 // Get date range from request or default to last 7 days
 $start_date = $_GET['start_date'] ?? date('Y-m-d', strtotime('-7 days'));
 $end_date = $_GET['end_date'] ?? date('Y-m-d');
-$filter_type = $_GET['filter_type'] ?? 'all'; // all, recent, staff, admin
+$filter_type = $_GET['filter_type'] ?? 'all'; // all, recent, admin
 
 // Database connection
 $db = Database::getInstance()->getConnection();
@@ -49,8 +49,6 @@ function getInventoryReports($db, $start_date, $end_date, $filter_type) {
     // Filter by type
     if ($filter_type === 'recent') {
         $sql .= " AND ir.created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)";
-    } elseif ($filter_type === 'staff') {
-        $sql .= " AND u.role = 'staff'";
     } elseif ($filter_type === 'admin') {
         $sql .= " AND u.role = 'admin'";
     }
@@ -63,24 +61,33 @@ function getInventoryReports($db, $start_date, $end_date, $filter_type) {
 }
 
 // Get summary statistics
-function getInventoryStats($db, $start_date, $end_date) {
-    $stmt = $db->prepare("
+function getInventoryStats($db, $start_date, $end_date, $filter_type) {
+    $sql = "
         SELECT 
             COUNT(*) as total_changes,
-            SUM(CASE WHEN change_type = 'Added' THEN quantity ELSE 0 END) as total_added,
-            SUM(CASE WHEN change_type = 'Removed' THEN quantity ELSE 0 END) as total_removed,
-            COUNT(DISTINCT product_id) as products_affected,
-            COUNT(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR) THEN 1 END) as recent_changes
-        FROM inventory_reports
-        WHERE date BETWEEN ? AND ?
-    ");
+            SUM(CASE WHEN ir.change_type = 'Added' THEN ir.quantity ELSE 0 END) as total_added,
+            SUM(CASE WHEN ir.change_type = 'Removed' THEN ir.quantity ELSE 0 END) as total_removed,
+            COUNT(DISTINCT ir.product_id) as products_affected,
+            COUNT(CASE WHEN ir.created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR) THEN 1 END) as recent_changes
+        FROM inventory_reports ir
+        LEFT JOIN users u ON ir.user_id = u.id
+        WHERE ir.date BETWEEN ? AND ?
+    ";
+
+    if ($filter_type === 'recent') {
+        $sql .= " AND ir.created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)";
+    } elseif ($filter_type === 'admin') {
+        $sql .= " AND u.role = 'admin'";
+    }
+
+    $stmt = $db->prepare($sql);
     $stmt->execute([$start_date, $end_date]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 // Get data
 $reports = getInventoryReports($db, $start_date, $end_date, $filter_type);
-$stats = getInventoryStats($db, $start_date, $end_date);
+$stats = getInventoryStats($db, $start_date, $end_date, $filter_type);
 
 ob_start();
 ?>
@@ -219,7 +226,6 @@ ob_start();
                         <select name="filter_type" class="form-select">
                             <option value="all" <?php echo $filter_type === 'all' ? 'selected' : ''; ?>>All Changes</option>
                             <option value="recent" <?php echo $filter_type === 'recent' ? 'selected' : ''; ?>>Recent Only (48hrs)</option>
-                            <option value="staff" <?php echo $filter_type === 'staff' ? 'selected' : ''; ?>>Staff Changes</option>
                             <option value="admin" <?php echo $filter_type === 'admin' ? 'selected' : ''; ?>>Admin Changes</option>
                         </select>
                     </div>
@@ -337,7 +343,7 @@ ob_start();
         <div class="alert alert-info">
             <i class="fas fa-info-circle me-2"></i>
             <strong>Note:</strong> The "NEW" badge indicates stock changes made within the last 48 hours. 
-            Reports show stock additions and removals made by staff and admins.
+            Reports show stock additions and removals recorded through the admin inventory workflow.
         </div>
     </div>
 </div>

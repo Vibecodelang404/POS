@@ -22,12 +22,6 @@ class DashboardController {
             $stmt = $this->db->query("SELECT COUNT(*) as total_orders FROM orders");
             $stats['total_orders'] = $stmt->fetch(PDO::FETCH_ASSOC)['total_orders'] ?? 0;
             
-            // Active Users (admin only)
-            if (User::isAdmin()) {
-                $stmt = $this->db->query("SELECT COUNT(*) as active_users FROM users WHERE status = 'active'");
-                $stats['active_users'] = $stmt->fetch(PDO::FETCH_ASSOC)['active_users'] ?? 0;
-            }
-            
             return $stats;
         } catch(PDOException $e) {
             return [];
@@ -36,10 +30,10 @@ class DashboardController {
     
     public function getRecentOrders($limit = 5) {
         try {
-            $stmt = $this->db->prepare("SELECT o.*, u.first_name, u.last_name FROM orders o 
-                                      JOIN users u ON o.user_id = u.id 
-                                      ORDER BY o.created_at DESC LIMIT ?");
-            $stmt->execute([$limit]);
+            $limit = max(1, (int) $limit);
+            $stmt = $this->db->query("SELECT o.*, u.first_name, u.last_name FROM orders o 
+                                      LEFT JOIN users u ON o.user_id = u.id 
+                                      ORDER BY o.created_at DESC LIMIT {$limit}");
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch(PDOException $e) {
             return [];
@@ -48,9 +42,9 @@ class DashboardController {
     
     public function getLowStockProducts($limit = 5) {
         try {
-            $stmt = $this->db->prepare("SELECT * FROM products WHERE stock_quantity <= 10 AND status = 'active' 
-                                      ORDER BY stock_quantity ASC LIMIT ?");
-            $stmt->execute([$limit]);
+            $limit = max(1, (int) $limit);
+            $stmt = $this->db->query("SELECT * FROM products WHERE stock_quantity <= 10 AND status = 'active' 
+                                      ORDER BY stock_quantity ASC LIMIT {$limit}");
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch(PDOException $e) {
             return [];

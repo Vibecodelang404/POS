@@ -8,198 +8,224 @@ $page_title = "Settings";
 // Handle form submissions
 $message = '';
 $message_type = '';
+$csrf_token = csrfToken();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    
-    // Store Configuration Update
-    if ($action === 'update_store_config') {
-        $settings = [
-            'store_name' => $_POST['store_name'],
-            'store_branch' => $_POST['store_branch'],
-            'store_address' => $_POST['store_address'],
-            'store_phone' => $_POST['store_phone'],
-            'store_email' => $_POST['store_email'],
-            'business_hours_open' => $_POST['business_hours_open'],
-            'business_hours_close' => $_POST['business_hours_close'],
-            'business_days' => $_POST['business_days'],
-            'receipt_header' => $_POST['receipt_header'],
-            'receipt_footer' => $_POST['receipt_footer'],
-            'tax_rate' => $_POST['tax_rate'],
-            'currency_symbol' => $_POST['currency_symbol'],
-            'receipt_show_logo' => isset($_POST['receipt_show_logo']) ? '1' : '0',
-            'receipt_show_cashier' => isset($_POST['receipt_show_cashier']) ? '1' : '0'
-        ];
-        
-        foreach ($settings as $key => $value) {
-            $stmt = $conn->prepare("INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
-            $stmt->bind_param("sss", $key, $value, $value);
-            $stmt->execute();
-        }
-        
-        // Handle logo upload
-        if (isset($_FILES['store_logo']) && $_FILES['store_logo']['error'] === UPLOAD_ERR_OK) {
-            $upload_dir = 'uploads/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
-            }
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        $message = "Security validation failed. Please refresh the page and try again.";
+        $message_type = "danger";
+    } else {
+        // Store Configuration Update
+        if ($action === 'update_store_config') {
+            $settings = [
+                'store_name' => $_POST['store_name'],
+                'store_branch' => $_POST['store_branch'],
+                'store_address' => $_POST['store_address'],
+                'store_phone' => $_POST['store_phone'],
+                'store_email' => $_POST['store_email'],
+                'business_hours_open' => $_POST['business_hours_open'],
+                'business_hours_close' => $_POST['business_hours_close'],
+                'business_days' => $_POST['business_days'],
+                'receipt_header' => $_POST['receipt_header'],
+                'receipt_footer' => $_POST['receipt_footer'],
+                'tax_rate' => $_POST['tax_rate'],
+                'currency_symbol' => $_POST['currency_symbol'],
+                'receipt_show_logo' => isset($_POST['receipt_show_logo']) ? '1' : '0',
+                'receipt_show_cashier' => isset($_POST['receipt_show_cashier']) ? '1' : '0'
+            ];
             
-            $file_extension = pathinfo($_FILES['store_logo']['name'], PATHINFO_EXTENSION);
-            $new_filename = 'logo_' . time() . '.' . $file_extension;
-            $upload_path = $upload_dir . $new_filename;
-            
-            if (move_uploaded_file($_FILES['store_logo']['tmp_name'], $upload_path)) {
-                $stmt = $conn->prepare("INSERT INTO store_settings (setting_key, setting_value, setting_type) VALUES ('store_logo', ?, 'image') ON DUPLICATE KEY UPDATE setting_value = ?");
-                $stmt->bind_param("ss", $upload_path, $upload_path);
+            foreach ($settings as $key => $value) {
+                $stmt = $conn->prepare("INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+                $stmt->bind_param("sss", $key, $value, $value);
                 $stmt->execute();
             }
-        }
-        
-        $message = "Store settings updated successfully!";
-        $message_type = "success";
-    }
-    
-    // GCash QR Code Upload
-    if ($action === 'upload_gcash_qr') {
-        if (isset($_FILES['gcash_qr']) && $_FILES['gcash_qr']['error'] === UPLOAD_ERR_OK) {
-            $upload_dir = __DIR__ . '/uploads/qrcodes/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
+            
+            // Handle logo upload
+            if (isset($_FILES['store_logo']) && $_FILES['store_logo']['error'] === UPLOAD_ERR_OK) {
+                $upload_dir = 'uploads/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0777, true);
+                }
+                
+                $file_extension = pathinfo($_FILES['store_logo']['name'], PATHINFO_EXTENSION);
+                $new_filename = 'logo_' . time() . '.' . $file_extension;
+                $upload_path = $upload_dir . $new_filename;
+                
+                if (move_uploaded_file($_FILES['store_logo']['tmp_name'], $upload_path)) {
+                    $stmt = $conn->prepare("INSERT INTO store_settings (setting_key, setting_value, setting_type) VALUES ('store_logo', ?, 'image') ON DUPLICATE KEY UPDATE setting_value = ?");
+                    $stmt->bind_param("ss", $upload_path, $upload_path);
+                    $stmt->execute();
+                }
             }
             
-            $file_extension = pathinfo($_FILES['gcash_qr']['name'], PATHINFO_EXTENSION);
-            $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
-            
-            if (in_array(strtolower($file_extension), $allowed_extensions)) {
-                $new_filename = 'gcash_qr_' . time() . '.' . $file_extension;
-                $upload_path = $upload_dir . $new_filename;
-                $relative_path = 'public/uploads/qrcodes/' . $new_filename; // Path relative to POS root for web access
+            $message = "Store settings updated successfully!";
+            $message_type = "success";
+        }
+        
+        // GCash QR Code Upload
+        if ($action === 'upload_gcash_qr') {
+            if (isset($_FILES['gcash_qr']) && $_FILES['gcash_qr']['error'] === UPLOAD_ERR_OK) {
+                $upload_dir = __DIR__ . '/uploads/qrcodes/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0777, true);
+                }
                 
-                if (move_uploaded_file($_FILES['gcash_qr']['tmp_name'], $upload_path)) {
-                    // Insert or update in payment_qrcodes table - store path relative to POS root
-                    $stmt = $conn->prepare("INSERT INTO payment_qrcodes (payment_method, qr_code_path, description, is_active) VALUES ('gcash', ?, 'GCash Payment QR Code', 1) ON DUPLICATE KEY UPDATE qr_code_path = ?, updated_at = CURRENT_TIMESTAMP");
-                    $stmt->bind_param("ss", $relative_path, $relative_path);
-                    $stmt->execute();
+                $file_extension = pathinfo($_FILES['gcash_qr']['name'], PATHINFO_EXTENSION);
+                $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+                
+                if (in_array(strtolower($file_extension), $allowed_extensions)) {
+                    $new_filename = 'gcash_qr_' . time() . '.' . $file_extension;
+                    $upload_path = $upload_dir . $new_filename;
+                    $relative_path = 'public/uploads/qrcodes/' . $new_filename; // Path relative to POS root for web access
                     
-                    $message = "GCash QR code uploaded successfully!";
-                    $message_type = "success";
+                    if (move_uploaded_file($_FILES['gcash_qr']['tmp_name'], $upload_path)) {
+                        $conn->query("UPDATE payment_qrcodes SET is_active = 0 WHERE payment_method = 'gcash'");
+
+                        $existingStmt = $conn->prepare("SELECT id FROM payment_qrcodes WHERE payment_method = 'gcash' ORDER BY updated_at DESC, id DESC LIMIT 1");
+                        $existingStmt->execute();
+                        $existingResult = $existingStmt->get_result();
+
+                        if ($existingRow = $existingResult->fetch_assoc()) {
+                            $stmt = $conn->prepare("UPDATE payment_qrcodes SET qr_code_path = ?, description = 'GCash Payment QR Code', is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+                            $stmt->bind_param("si", $relative_path, $existingRow['id']);
+                        } else {
+                            $stmt = $conn->prepare("INSERT INTO payment_qrcodes (payment_method, qr_code_path, description, is_active) VALUES ('gcash', ?, 'GCash Payment QR Code', 1)");
+                            $stmt->bind_param("s", $relative_path);
+                        }
+
+                        $stmt->execute();
+                        
+                        $message = "GCash QR code uploaded successfully!";
+                        $message_type = "success";
+                    } else {
+                        $message = "Error uploading QR code!";
+                        $message_type = "danger";
+                    }
                 } else {
-                    $message = "Error uploading QR code!";
+                    $message = "Invalid file type! Only JPG, PNG, and GIF allowed.";
                     $message_type = "danger";
                 }
             } else {
-                $message = "Invalid file type! Only JPG, PNG, and GIF allowed.";
-                $message_type = "danger";
+                $message = "Please select a QR code image to upload.";
+                $message_type = "warning";
             }
-        } else {
-            $message = "Please select a QR code image to upload.";
-            $message_type = "warning";
         }
-    }
-    
-    // Delete GCash QR Code
-    if ($action === 'delete_gcash_qr') {
-        $stmt = $conn->prepare("SELECT qr_code_path FROM payment_qrcodes WHERE payment_method = 'gcash' AND is_active = 1 LIMIT 1");
-        $stmt->execute();
-        $result = $stmt->get_result();
         
-        if ($row = $result->fetch_assoc()) {
-            // Construct full file path
-            $full_file_path = __DIR__ . '/' . $row['qr_code_path'];
-            if (file_exists($full_file_path)) {
-                unlink($full_file_path);
-            }
-            
-            $stmt = $conn->prepare("UPDATE payment_qrcodes SET qr_code_path = '', is_active = 0 WHERE payment_method = 'gcash'");
+        // Delete GCash QR Code
+        if ($action === 'delete_gcash_qr') {
+            $stmt = $conn->prepare("SELECT qr_code_path FROM payment_qrcodes WHERE payment_method = 'gcash' AND is_active = 1 LIMIT 1");
             $stmt->execute();
+            $result = $stmt->get_result();
             
-            $message = "GCash QR code deleted successfully!";
-            $message_type = "success";
+            if ($row = $result->fetch_assoc()) {
+                // Construct full file path
+                $full_file_path = dirname(__DIR__) . '/' . $row['qr_code_path'];
+                if (file_exists($full_file_path)) {
+                    unlink($full_file_path);
+                }
+                
+                $stmt = $conn->prepare("UPDATE payment_qrcodes SET qr_code_path = '', is_active = 0 WHERE payment_method = 'gcash'");
+                $stmt->execute();
+                
+                $message = "GCash QR code deleted successfully!";
+                $message_type = "success";
+            }
         }
-    }
-    
-    // User Management Actions (from user_management.php)
-    if ($action === 'create_user') {
-        $username = trim($_POST['username']);
-        $email = trim($_POST['email']);
-        $password = $_POST['password'];
-        $role = $_POST['role'];
-        $first_name = trim($_POST['first_name']);
-        $last_name = trim($_POST['last_name']);
-        $status = $_POST['status'];
         
-        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-        
-        $stmt = $conn->prepare("INSERT INTO users (username, email, password, role, first_name, last_name, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssssss", $username, $email, $hashed_password, $role, $first_name, $last_name, $status);
-        
-        if ($stmt->execute()) {
-            $message = "User created successfully!";
-            $message_type = "success";
-        } else {
-            $message = "Error creating user: " . $conn->error;
-            $message_type = "danger";
-        }
-    }
-    
-    if ($action === 'update_user') {
-        $user_id = $_POST['user_id'];
-        $email = trim($_POST['email']);
-        $role = $_POST['role'];
-        $first_name = trim($_POST['first_name']);
-        $last_name = trim($_POST['last_name']);
-        $status = $_POST['status'];
-        
-        $stmt = $conn->prepare("UPDATE users SET email=?, role=?, first_name=?, last_name=?, status=? WHERE id=?");
-        $stmt->bind_param("sssssi", $email, $role, $first_name, $last_name, $status, $user_id);
-        
-        if ($stmt->execute()) {
-            $message = "User updated successfully!";
-            $message_type = "success";
-        } else {
-            $message = "Error updating user.";
-            $message_type = "danger";
-        }
-    }
-    
-    if ($action === 'reset_password') {
-        $user_id = $_POST['user_id'];
-        $new_password = $_POST['new_password'];
-        
-        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("UPDATE users SET password=? WHERE id=?");
-        $stmt->bind_param("si", $hashed_password, $user_id);
-        
-        if ($stmt->execute()) {
-            $message = "Password reset successfully!";
-            $message_type = "success";
-        } else {
-            $message = "Error resetting password.";
-            $message_type = "danger";
-        }
-    }
-    
-    if ($action === 'delete_user') {
-        $user_id = $_POST['user_id'];
-        
-        $check_stmt = $conn->prepare("SELECT COUNT(*) as order_count FROM orders WHERE user_id = ?");
-        $check_stmt->bind_param("i", $user_id);
-        $check_stmt->execute();
-        $result = $check_stmt->get_result()->fetch_assoc();
-        
-        if ($result['order_count'] > 0) {
-            $message = "Cannot delete user with existing orders. Set status to 'inactive' instead.";
-            $message_type = "warning";
-        } else {
-            $stmt = $conn->prepare("DELETE FROM users WHERE id=?");
-            $stmt->bind_param("i", $user_id);
+        // User Management Actions (from user_management.php)
+        if ($action === 'create_user') {
+            $username = trim($_POST['username']);
+            $email = trim($_POST['email']);
+            $password = $_POST['password'];
+            $role = $_POST['role'];
+            $first_name = trim($_POST['first_name']);
+            $last_name = trim($_POST['last_name']);
+            $status = $_POST['status'];
+            
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            
+            $stmt = $conn->prepare("INSERT INTO users (username, email, password, role, first_name, last_name, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("sssssss", $username, $email, $hashed_password, $role, $first_name, $last_name, $status);
             
             if ($stmt->execute()) {
-                $message = "User deleted successfully!";
+                $message = "User created successfully!";
                 $message_type = "success";
             } else {
-                $message = "Error deleting user.";
+                $message = "Error creating user: " . $conn->error;
                 $message_type = "danger";
+            }
+        }
+        
+        if ($action === 'update_user') {
+            $user_id = (int) ($_POST['user_id'] ?? 0);
+            $email = trim($_POST['email']);
+            $role = $_POST['role'];
+            $first_name = trim($_POST['first_name']);
+            $last_name = trim($_POST['last_name']);
+            $status = $_POST['status'];
+
+            if ($user_id === (int) $_SESSION['user_id'] && ($role !== 'admin' || $status !== 'active')) {
+                $message = "You cannot remove your own admin access or deactivate your current account.";
+                $message_type = "warning";
+            } else {
+                $stmt = $conn->prepare("UPDATE users SET email=?, role=?, first_name=?, last_name=?, status=? WHERE id=?");
+                $stmt->bind_param("sssssi", $email, $role, $first_name, $last_name, $status, $user_id);
+                
+                if ($stmt->execute()) {
+                    $message = "User updated successfully!";
+                    $message_type = "success";
+                } else {
+                    $message = "Error updating user.";
+                    $message_type = "danger";
+                }
+            }
+        }
+        
+        if ($action === 'reset_password') {
+            $user_id = (int) ($_POST['user_id'] ?? 0);
+            $new_password = $_POST['new_password'];
+            
+            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+            $stmt = $conn->prepare("UPDATE users SET password=? WHERE id=?");
+            $stmt->bind_param("si", $hashed_password, $user_id);
+            
+            if ($stmt->execute()) {
+                $message = "Password reset successfully!";
+                $message_type = "success";
+            } else {
+                $message = "Error resetting password.";
+                $message_type = "danger";
+            }
+        }
+        
+        if ($action === 'delete_user') {
+            $user_id = (int) ($_POST['user_id'] ?? 0);
+
+            if ($user_id === (int) $_SESSION['user_id']) {
+                $message = "You cannot delete your current account.";
+                $message_type = "warning";
+            } else {
+                $check_stmt = $conn->prepare("SELECT COUNT(*) as order_count FROM orders WHERE user_id = ?");
+                $check_stmt->bind_param("i", $user_id);
+                $check_stmt->execute();
+                $result = $check_stmt->get_result()->fetch_assoc();
+                
+                if ($result['order_count'] > 0) {
+                    $message = "Cannot delete user with existing orders. Set status to 'inactive' instead.";
+                    $message_type = "warning";
+                } else {
+                    $stmt = $conn->prepare("DELETE FROM users WHERE id=?");
+                    $stmt->bind_param("i", $user_id);
+                    
+                    if ($stmt->execute()) {
+                        $message = "User deleted successfully!";
+                        $message_type = "success";
+                    } else {
+                        $message = "Error deleting user.";
+                        $message_type = "danger";
+                    }
+                }
             }
         }
     }
@@ -214,7 +240,7 @@ while ($row = $settings_query->fetch_assoc()) {
 }
 
 // Fetch GCash QR Code
-$gcash_qr_query = $conn->query("SELECT qr_code_path FROM payment_qrcodes WHERE payment_method = 'gcash' AND is_active = 1 LIMIT 1");
+$gcash_qr_query = $conn->query("SELECT qr_code_path FROM payment_qrcodes WHERE payment_method = 'gcash' AND is_active = 1 ORDER BY updated_at DESC, id DESC LIMIT 1");
 $gcash_qr = $gcash_qr_query->fetch_assoc();
 $gcash_qr_path = $gcash_qr['qr_code_path'] ?? '';
 
@@ -303,6 +329,7 @@ ob_start();
     <div class="tab-pane fade show active" id="store-config" role="tabpanel">
         <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="action" value="update_store_config">
+            <?php echo csrfInput(); ?>
             
             <!-- Basic Information -->
             <div class="settings-section">
@@ -418,7 +445,7 @@ ob_start();
                 <p class="text-muted">Upload a GCash QR code that will be displayed when customers select GCash as payment method in POS.</p>
                 
                 <?php 
-                    $qr_file_full_path = __DIR__ . '/' . $gcash_qr_path;
+                    $qr_file_full_path = dirname(__DIR__) . '/' . $gcash_qr_path;
                     $qr_file_exists = !empty($gcash_qr_path) && file_exists($qr_file_full_path);
                 ?>
                 
@@ -431,6 +458,7 @@ ob_start();
                         </div>
                         <form method="POST" class="d-inline">
                             <input type="hidden" name="action" value="delete_gcash_qr">
+                            <?php echo csrfInput(); ?>
                             <button type="button" class="btn btn-danger btn-sm" onclick="deleteGCashQR()">
                                 <i class="fas fa-trash me-1"></i>Delete QR Code
                             </button>
@@ -445,6 +473,7 @@ ob_start();
                 <!-- Upload Form -->
                 <form method="POST" enctype="multipart/form-data" class="mt-3">
                     <input type="hidden" name="action" value="upload_gcash_qr">
+                    <?php echo csrfInput(); ?>
                     <div class="row">
                         <div class="col-md-8">
                             <input type="file" class="form-control" name="gcash_qr" accept="image/*" required>
@@ -591,7 +620,7 @@ ob_start();
     </div>
 </div>
 
-<!-- Add Shift Modal -->
+<!-- Add User Modal -->
 <div class="modal fade" id="addUserModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -602,6 +631,7 @@ ob_start();
             <form method="POST">
                 <div class="modal-body">
                     <input type="hidden" name="action" value="create_user">
+                    <?php echo csrfInput(); ?>
                     <div class="mb-3">
                         <label class="form-label">Username *</label>
                         <input type="text" class="form-control" name="username" required>
@@ -663,6 +693,7 @@ ob_start();
                 <div class="modal-body">
                     <input type="hidden" name="action" value="update_user">
                     <input type="hidden" name="user_id" id="edit_user_id">
+                    <?php echo csrfInput(); ?>
                     <div class="mb-3">
                         <label class="form-label">Username</label>
                         <input type="text" class="form-control" id="edit_username" readonly>
@@ -720,6 +751,7 @@ ob_start();
                 <div class="modal-body">
                     <input type="hidden" name="action" value="reset_password">
                     <input type="hidden" name="user_id" id="reset_user_id">
+                    <?php echo csrfInput(); ?>
                     <p>Reset password for user: <strong id="reset_username"></strong></p>
                     <div class="mb-3">
                         <label class="form-label">New Password *</label>
@@ -737,6 +769,8 @@ ob_start();
 
 
 <script>
+const csrfToken = <?php echo json_encode($csrf_token); ?>;
+
 function editUser(user) {
     document.getElementById('edit_user_id').value = user.id;
     document.getElementById('edit_username').value = user.username;
@@ -775,6 +809,7 @@ function deleteUser(userId, username) {
             form.innerHTML = `
                 <input type="hidden" name="action" value="delete_user">
                 <input type="hidden" name="user_id" value="${userId}">
+                <input type="hidden" name="csrf_token" value="${csrfToken}">
             `;
             document.body.appendChild(form);
             form.submit();
@@ -798,6 +833,7 @@ function deleteGCashQR() {
             form.method = 'POST';
             form.innerHTML = `
                 <input type="hidden" name="action" value="delete_gcash_qr">
+                <input type="hidden" name="csrf_token" value="${csrfToken}">
             `;
             document.body.appendChild(form);
             form.submit();
@@ -842,7 +878,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // User Create/Update/Reset Forms in Settings Tab
-    const tabPane = document.getElementById('users-tab');
+    const tabPane = document.getElementById('user-management');
     if (tabPane) {
         const forms = tabPane.querySelectorAll('form');
         
@@ -883,7 +919,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     });
                 });
-            } else if (form.querySelector('input[value="reset_password_user"]')) {
+            } else if (form.querySelector('input[value="reset_password"]')) {
                 form.addEventListener('submit', function(e) {
                     e.preventDefault();
                     Swal.fire({

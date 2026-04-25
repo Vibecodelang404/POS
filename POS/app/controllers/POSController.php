@@ -44,7 +44,7 @@ class POSController {
         ];
     }
     
-    public function createOrder($items, $payment_method = 'cash', $amount_received = 0, $discount_percent = 0) {
+    public function createOrder($items, $payment_method = 'cash', $amount_received = 0, $discount_amount = 0) {
         try {
             // Set timezone to Philippines (Manila)
             date_default_timezone_set('Asia/Manila');
@@ -61,13 +61,12 @@ class POSController {
                 $subtotal += $item['price'] * $item['quantity'];
             }
             
-            // Apply discount
-            $discount_amount = ($subtotal * $discount_percent) / 100;
-            $discounted_subtotal = $subtotal - $discount_amount;
-            
-            // Add tax (12%)
-            $tax_amount = $discounted_subtotal * 0.12;
-            $total_with_tax = $discounted_subtotal + $tax_amount;
+            // Product prices are tax-inclusive. Discount is entered as a peso amount.
+            $discount_amount = max(0, min((float) $discount_amount, (float) $subtotal));
+            $gross_total = max(0, $subtotal - $discount_amount);
+            $net_sales = $gross_total / 1.12;
+            $tax_amount = $gross_total - $net_sales;
+            $discount_percent = $subtotal > 0 ? ($discount_amount / $subtotal) * 100 : 0;
             
             // Create order with fallback for older database schema
             try {
@@ -79,11 +78,11 @@ class POSController {
                 $stmt->execute([
                     $order_number, 
                     $_SESSION['user_id'], 
-                    $subtotal,
+                    $net_sales,
                     $discount_percent,
                     $discount_amount,
                     $tax_amount,
-                    $total_with_tax,
+                    $gross_total,
                     $payment_method,
                     $amount_received,
                     $created_at
@@ -91,7 +90,7 @@ class POSController {
             } catch(PDOException $e) {
                 // Fallback to old schema if new columns don't exist
                 $stmt = $this->db->prepare("INSERT INTO orders (order_number, user_id, total_amount, status, created_at) VALUES (?, ?, ?, 'completed', ?)");
-                $stmt->execute([$order_number, $_SESSION['user_id'], $total_with_tax, $created_at]);
+                $stmt->execute([$order_number, $_SESSION['user_id'], $gross_total, $created_at]);
             }
             $order_id = $this->db->lastInsertId();
             
@@ -113,10 +112,11 @@ class POSController {
                 'success' => true,
                 'order_number' => $order_number,
                 'subtotal' => $subtotal,
+                'net_sales' => $net_sales,
                 'discount' => $discount_amount,
                 'tax' => $tax_amount,
-                'total' => $total_with_tax,
-                'change' => $amount_received - $total_with_tax
+                'total' => $gross_total,
+                'change' => $amount_received - $gross_total
             ];
             
         } catch(PDOException $e) {

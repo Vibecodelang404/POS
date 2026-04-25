@@ -114,14 +114,14 @@ ob_start();
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     .settings-section h5 {
-        color: #dc3545;
+        color: var(--accent-deep);
         margin-bottom: 1.5rem;
         padding-bottom: 0.5rem;
         border-bottom: 2px solid #f8f9fa;
     }
     .profile-header {
-        background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
-        color: white;
+        background: linear-gradient(135deg, var(--accent-deep) 0%, var(--accent) 55%, #e1be62 100%);
+        color: #172033;
         padding: 2rem;
         border-radius: 10px;
         margin-bottom: 2rem;
@@ -135,7 +135,7 @@ ob_start();
         align-items: center;
         justify-content: center;
         font-size: 2.5rem;
-        color: #dc3545;
+        color: var(--accent-deep);
         font-weight: bold;
         margin-bottom: 1rem;
     }
@@ -146,8 +146,8 @@ ob_start();
         font-weight: 500;
     }
     .nav-tabs .nav-link.active {
-        color: #dc3545;
-        border-bottom: 3px solid #dc3545;
+        color: var(--accent-deep);
+        border-bottom: 3px solid var(--accent-deep);
         background: transparent;
     }
 </style>
@@ -276,7 +276,7 @@ document.getElementById('profileForm')?.addEventListener('submit', function(e) {
         text: 'Are you sure you want to update your profile information?',
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#dc3545',
+        confirmButtonColor: '#9F7A1C',
         cancelButtonColor: '#6c757d',
         confirmButtonText: 'Yes, Update',
         cancelButtonText: 'Cancel'

@@ -17,6 +17,9 @@ require_once __DIR__ . '/../app/config.php';
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 switch ($action) {
+    case 'public_key':
+        sendPublicKey();
+        break;
     case 'login':
         handleLogin();
         break;
@@ -29,7 +32,12 @@ function handleLogin() {
     global $conn;
     
     $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
+    try {
+        $password = AuthSecurity::getIncomingPassword($_POST);
+    } catch (RuntimeException $e) {
+        sendResponse(false, $e->getMessage());
+        return;
+    }
     
     // Validate input
     if (empty($username) || empty($password)) {
@@ -71,6 +79,16 @@ function handleLogin() {
         
     } catch (Exception $e) {
         sendResponse(false, 'Server error: ' . $e->getMessage());
+    }
+}
+
+function sendPublicKey() {
+    try {
+        sendResponse(true, 'Login public key retrieved', [
+            'public_key' => AuthSecurity::getPublicKey()
+        ]);
+    } catch (RuntimeException $e) {
+        sendResponse(false, $e->getMessage());
     }
 }
 

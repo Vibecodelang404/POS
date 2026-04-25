@@ -105,11 +105,11 @@ $dailySales = $dailySalesQuery->fetchAll(PDO::FETCH_ASSOC);
 // Get category-wise product distribution
 $categoryQuery = $db->query("
     SELECT 
-        c.name as category,
+        COALESCE(c.name, 'Uncategorized') as category,
         COUNT(p.id) as product_count
-    FROM categories c
-    LEFT JOIN products p ON c.id = p.category_id
-    GROUP BY c.id, c.name
+    FROM products p
+    LEFT JOIN categories c ON c.id = p.category_id
+    GROUP BY COALESCE(c.name, 'Uncategorized')
     ORDER BY product_count DESC
     LIMIT 6
 ");
@@ -119,38 +119,53 @@ $categoryData = $categoryQuery->fetchAll(PDO::FETCH_ASSOC);
 $salesDates = array_map(function($item) { return date('M d', strtotime($item['date'])); }, $dailySales);
 $salesAmounts = array_map(function($item) { return $item['sales']; }, $dailySales);
 $salesOrders = array_map(function($item) { return $item['orders']; }, $dailySales);
+$paymentLabels = array_map(function($pm) { return ucfirst($pm['payment_method']); }, $paymentMethods);
+$paymentCounts = array_map(function($pm) { return (int) $pm['count']; }, $paymentMethods);
+$paymentTotals = array_map(function($pm) { return (float) $pm['total']; }, $paymentMethods);
+$categoryLabels = array_map(function($item) { return $item['category']; }, $categoryData);
+$categoryCounts = array_map(function($item) { return (int) $item['product_count']; }, $categoryData);
 
 // Start content
 ob_start();
 ?>
 
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.0/dist/apexcharts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <style>
 .admin-dashboard-card {
-    border-radius: 12px;
+    border-radius: 22px;
     padding: 1.5rem;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
+    background: rgba(255,255,255,0.94);
+    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     height: 100%;
+    border: 1px solid rgba(15, 23, 42, 0.05);
 }
 .admin-dashboard-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
 }
 .admin-stat-icon {
-    width: 70px;
-    height: 70px;
-    border-radius: 50%;
+    width: 68px;
+    height: 68px;
+    border-radius: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2rem;
+    font-size: 1.7rem;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
 }
 .admin-chart-container {
     position: relative;
     height: 300px;
+}
+.admin-chart-canvas {
+    width: 100% !important;
+    height: 300px !important;
+}
+.admin-chart-canvas-tall {
+    width: 100% !important;
+    height: 340px !important;
 }
 .admin-section-title {
     font-size: 1.25rem;
@@ -158,7 +173,102 @@ ob_start();
     color: #212529;
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
-    border-bottom: 2px solid #dc3545;
+    border-bottom: 2px solid var(--accent-deep);
+}
+.dashboard-action-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+.metric-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.metric-kicker {
+    color: rgba(23, 32, 51, 0.58);
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 800;
+}
+.compact-list-item {
+    border-radius: 16px;
+    background: #f8fafc;
+    border: 1px solid rgba(15, 23, 42, 0.05);
+}
+.inventory-health-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin-top: 1rem;
+}
+.inventory-health-item {
+    padding: 1rem;
+    border-radius: 18px;
+    background: #f8fafc;
+    border: 1px solid rgba(15, 23, 42, 0.05);
+}
+.inventory-health-item strong {
+    display: block;
+    font-family: 'Manrope', sans-serif;
+    font-size: 1.5rem;
+    line-height: 1;
+    margin-bottom: 0.35rem;
+}
+.inventory-health-label {
+    color: #344054;
+    font-weight: 700;
+}
+.inventory-health-note {
+    color: var(--muted);
+    font-size: 0.84rem;
+    margin-top: 0.2rem;
+}
+.chart-shell {
+    position: relative;
+    border-radius: 20px;
+    padding: 1rem;
+    background:
+        radial-gradient(circle at top right, rgba(212, 175, 55, 0.14), transparent 24%),
+        linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.96));
+    border: 1px solid rgba(15, 23, 42, 0.06);
+}
+.chart-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.chart-kpi {
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    padding: 0.85rem 1rem;
+}
+.chart-kpi-label {
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.chart-kpi-value {
+    font-family: 'Manrope', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--ink);
+}
+@media (max-width: 991px) {
+    .dashboard-action-grid {
+        grid-template-columns: 1fr;
+    }
+    .inventory-health-grid {
+        grid-template-columns: 1fr;
+    }
+    .chart-kpis {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
 
@@ -166,18 +276,48 @@ ob_start();
 <div class="panel-hero mb-4">
     <div class="row align-items-center g-4">
         <div class="col-lg-8">
-            <div class="hero-kicker">Executive Overview</div>
-            <h2 class="hero-title">Admin Dashboard for <?php echo htmlspecialchars($_SESSION['first_name'] ?? 'Administrator'); ?></h2>
-            <p class="hero-subtitle">Monitor revenue, inventory health, payment distribution, and recent store activity from a single polished command center prepared for a professional system presentation.</p>
-        </div>
-        <div class="col-lg-4 text-lg-end">
-            <span class="hero-chip"><i class="fas fa-chart-line"></i> Business Insights in Real Time</span>
+            <h2 class="hero-title">Admin Dashboard</h2>
+            <p class="hero-subtitle">Review sales, inventory status, payment activity, and recent transactions in one place.</p>
         </div>
     </div>
 </div>
-<div class="mb-4 d-none">
-    <h4 class="mb-1">🎯 Admin Dashboard - <?php echo htmlspecialchars($_SESSION['first_name'] ?? 'Administrator'); ?></h4>
-    <p class="text-muted mb-0">Complete overview of your business operations</p>
+<div class="admin-dashboard-card mb-4">
+    <div class="mb-3">
+        <h5 class="admin-section-title mb-2 border-0 pb-0">Quick Actions</h5>
+        <p class="text-muted mb-0">Jump directly into the admin work that usually needs follow-up.</p>
+    </div>
+    <div class="dashboard-action-grid">
+        <a href="inventory.php?stock_filter=low_stock" class="action-link-card">
+            <div class="d-flex align-items-center gap-3">
+                <span class="action-link-icon"><i class="fas fa-box-open"></i></span>
+                <div>
+                    <div class="fw-bold">Review Low Stock</div>
+                    <div class="metric-note">Open filtered inventory and prepare replenishment</div>
+                </div>
+            </div>
+            <i class="fas fa-arrow-right text-muted"></i>
+        </a>
+        <a href="transactions.php" class="action-link-card">
+            <div class="d-flex align-items-center gap-3">
+                <span class="action-link-icon"><i class="fas fa-receipt"></i></span>
+                <div>
+                    <div class="fw-bold">View Transactions</div>
+                    <div class="metric-note">Validate the latest sales and cashier activity</div>
+                </div>
+            </div>
+            <i class="fas fa-arrow-right text-muted"></i>
+        </a>
+        <a href="user_management.php" class="action-link-card">
+            <div class="d-flex align-items-center gap-3">
+                <span class="action-link-icon"><i class="fas fa-users-cog"></i></span>
+                <div>
+                    <div class="fw-bold">Manage Accounts</div>
+                    <div class="metric-note">Update role access and user status quickly</div>
+                </div>
+            </div>
+            <i class="fas fa-arrow-right text-muted"></i>
+        </a>
+    </div>
 </div>
 
 <!-- Top Metrics Row -->
@@ -188,10 +328,11 @@ ob_start();
                 <div class="admin-stat-icon text-white me-3" style="background-color: #667eea !important;">
                     <i class="fas fa-calendar-day"></i>
                 </div>
-                <div>
+                <div class="metric-stack">
+                    <span class="metric-kicker">Today</span>
                     <h3 class="mb-0 text-dark"><?php echo formatCurrency($todayStats['total_sales']); ?></h3>
                     <p class="text-muted mb-0">Today's Sales</p>
-                    <small class="text-primary"><?= $todayStats['order_count'] ?> orders</small>
+                    <small class="text-primary"><?= $todayStats['order_count'] ?> transactions today</small>
                 </div>
             </div>
         </div>
@@ -203,10 +344,11 @@ ob_start();
                 <div class="admin-stat-icon text-white me-3" style="background-color: #f093fb !important;">
                     <i class="fas fa-calendar-week"></i>
                 </div>
-                <div>
+                <div class="metric-stack">
+                    <span class="metric-kicker">7 Days</span>
                     <h3 class="mb-0 text-dark"><?php echo formatCurrency($weekStats['total_sales']); ?></h3>
                     <p class="text-muted mb-0">This Week</p>
-                    <small class="text-info"><?= $weekStats['order_count'] ?> orders</small>
+                    <small class="text-info"><?= $weekStats['order_count'] ?> transactions this week</small>
                 </div>
             </div>
         </div>
@@ -218,10 +360,11 @@ ob_start();
                 <div class="admin-stat-icon bg-info text-white me-3">
                     <i class="fas fa-calendar-alt"></i>
                 </div>
-                <div>
+                <div class="metric-stack">
+                    <span class="metric-kicker">Month To Date</span>
                     <h3 class="mb-0 text-dark"><?php echo formatCurrency($monthStats['total_sales']); ?></h3>
                     <p class="text-muted mb-0">This Month</p>
-                    <small class="text-info"><?= $monthStats['order_count'] ?> orders</small>
+                    <small class="text-info"><?= $monthStats['order_count'] ?> transactions this month</small>
                 </div>
             </div>
         </div>
@@ -233,7 +376,8 @@ ob_start();
                 <div class="admin-stat-icon bg-success text-white me-3">
                     <i class="fas fa-dollar-sign"></i>
                 </div>
-                <div>
+                <div class="metric-stack">
+                    <span class="metric-kicker">Lifetime</span>
                     <h3 class="mb-0 text-dark"><?php echo formatCurrency($stats['total_sales']); ?></h3>
                     <p class="text-muted mb-0">Total Revenue</p>
                     <small class="text-success">All time</small>
@@ -245,77 +389,63 @@ ob_start();
 
 <!-- Inventory & Orders Stats -->
 <div class="row mb-4">
-    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+    <div class="col-xl-6 col-md-12 mb-3">
         <div class="admin-dashboard-card" style="border-left: 4px solid #0d6efd;">
-            <div class="text-center">
-                <div class="admin-stat-icon bg-primary text-white mx-auto mb-2">
+            <div class="d-flex align-items-center">
+                <div class="admin-stat-icon bg-primary text-white me-3">
                     <i class="fas fa-boxes"></i>
                 </div>
-                <h3 class="mb-0"><?= $inventoryStats['total_products'] ?></h3>
-                <small class="text-muted">Total Products</small>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
-        <div class="admin-dashboard-card" style="border-left: 4px solid #28a745;">
-            <div class="text-center">
-                <div class="admin-stat-icon bg-success text-white mx-auto mb-2">
-                    <i class="fas fa-check-circle"></i>
+                <div class="metric-stack">
+                    <span class="metric-kicker">Inventory Snapshot</span>
+                    <h3 class="mb-0 text-dark"><?= $inventoryStats['total_products'] ?></h3>
+                    <p class="text-muted mb-0">Total Products</p>
+                    <small class="text-primary">Current stock status in one summary</small>
                 </div>
-                <h3 class="mb-0"><?= $inventoryStats['in_stock'] ?></h3>
-                <small class="text-muted">In Stock</small>
             </div>
-        </div>
-    </div>
-    
-    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
-        <div class="admin-dashboard-card" style="border-left: 4px solid #ffc107;">
-            <div class="text-center">
-                <div class="admin-stat-icon bg-warning text-white mx-auto mb-2">
-                    <i class="fas fa-exclamation-triangle"></i>
+            <div class="inventory-health-grid">
+                <div class="inventory-health-item">
+                    <strong class="text-success"><?= $inventoryStats['in_stock'] ?></strong>
+                    <div class="inventory-health-label">In Stock</div>
+                    <div class="inventory-health-note">Above low-stock threshold</div>
                 </div>
-                <h3 class="mb-0"><?= $inventoryStats['low_stock'] ?></h3>
-                <small class="text-muted">Low Stock</small>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
-        <div class="admin-dashboard-card" style="border-left: 4px solid #dc3545;">
-            <div class="text-center">
-                <div class="admin-stat-icon bg-danger text-white mx-auto mb-2">
-                    <i class="fas fa-times-circle"></i>
+                <div class="inventory-health-item">
+                    <strong class="text-warning"><?= $inventoryStats['low_stock'] ?></strong>
+                    <div class="inventory-health-label">Low Stock</div>
+                    <div class="inventory-health-note">Needs replenishment soon</div>
                 </div>
-                <h3 class="mb-0"><?= $inventoryStats['out_of_stock'] ?></h3>
-                <small class="text-muted">Out of Stock</small>
+                <div class="inventory-health-item">
+                    <strong class="text-brand"><?= $inventoryStats['out_of_stock'] ?></strong>
+                    <div class="inventory-health-label">Out of Stock</div>
+                    <div class="inventory-health-note">Unavailable for sale</div>
+                </div>
             </div>
         </div>
     </div>
     
-    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+    <div class="col-xl-3 col-md-6 col-sm-6 mb-3">
         <div class="admin-dashboard-card" style="border-left: 4px solid #6f42c1;">
             <div class="text-center">
                 <div class="admin-stat-icon bg-purple text-white mx-auto mb-2" style="background-color: #6f42c1 !important;">
                     <i class="fas fa-shopping-cart"></i>
                 </div>
                 <h3 class="mb-0"><?= $stats['total_orders'] ?></h3>
-                <small class="text-muted">Total Orders</small>
+                <small class="text-muted">Total Transactions</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 col-sm-6 mb-3">
+        <div class="admin-dashboard-card" style="border-left: 4px solid var(--accent-deep);">
+            <div class="text-center">
+                <div class="admin-stat-icon bg-brand mx-auto mb-2">
+                    <i class="fas fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="mb-0"><?= $inventoryStats['low_stock'] + $inventoryStats['out_of_stock'] ?></h3>
+                <small class="text-muted">Items Needing Attention</small>
             </div>
         </div>
     </div>
     
-    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
-        <div class="admin-dashboard-card" style="border-left: 4px solid #17a2b8;">
-            <div class="text-center">
-                <div class="admin-stat-icon bg-info text-white mx-auto mb-2">
-                    <i class="fas fa-users"></i>
-                </div>
-                <h3 class="mb-0"><?= $stats['active_users'] ?? 0 ?></h3>
-                <small class="text-muted">Active Users</small>
-            </div>
-        </div>
-    </div>
 </div>
 
 <!-- Charts Row -->
@@ -323,33 +453,72 @@ ob_start();
     <!-- Sales Trend Chart -->
     <div class="col-xl-8 mb-3">
         <div class="admin-dashboard-card">
-            <h5 class="admin-section-title"><i class="fas fa-chart-line me-2"></i>Sales Trend (Last 7 Days)</h5>
-            <div id="adminSalesTrendChart"></div>
+            <h5 class="admin-section-title"><i class="fas fa-chart-line me-2"></i>Sales for the Last 7 Days</h5>
+            <div class="chart-kpis">
+                <div class="chart-kpi">
+                    <div class="chart-kpi-label">Peak Day</div>
+                    <div class="chart-kpi-value"><?php echo !empty($dailySales) ? formatCurrency(max($salesAmounts)) : formatCurrency(0); ?></div>
+                </div>
+                <div class="chart-kpi">
+                    <div class="chart-kpi-label">Orders Tracked</div>
+                    <div class="chart-kpi-value"><?php echo number_format(array_sum($salesOrders)); ?></div>
+                </div>
+                <div class="chart-kpi">
+                    <div class="chart-kpi-label">Daily Average</div>
+                    <div class="chart-kpi-value"><?php echo formatCurrency(!empty($salesAmounts) ? array_sum($salesAmounts) / count($salesAmounts) : 0); ?></div>
+                </div>
+            </div>
+            <div class="chart-shell">
+                <canvas id="adminSalesTrendChart" class="admin-chart-canvas"></canvas>
+            </div>
         </div>
     </div>
     
     <!-- Payment Methods Chart -->
     <div class="col-xl-4 mb-3">
         <div class="admin-dashboard-card">
-            <h5 class="admin-section-title"><i class="fas fa-credit-card me-2"></i>Payment Distribution</h5>
-            <div id="adminPaymentMethodChart"></div>
+            <h5 class="admin-section-title"><i class="fas fa-credit-card me-2"></i>Payment Breakdown</h5>
+            <div class="chart-shell">
+                <canvas id="adminPaymentMethodChart" class="admin-chart-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="admin-dashboard-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="admin-section-title mb-0"><i class="fas fa-layer-group me-2"></i>Category Coverage</h5>
+                <span class="badge badge-brand"><?php echo count($categoryData); ?> categories tracked</span>
+            </div>
+            <div class="chart-shell">
+                <?php if (empty($categoryData)): ?>
+                    <div class="text-center py-5">
+                        <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                        <p class="text-muted mb-0">No category data available yet.</p>
+                    </div>
+                <?php else: ?>
+                    <canvas id="adminCategoryChart" class="admin-chart-canvas-tall"></canvas>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Content Row -->
 <div class="row mb-4">
-    <!-- Recent Orders -->
+    <!-- Recent Transactions -->
     <div class="col-xl-5 mb-3">
         <div class="admin-dashboard-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="admin-section-title mb-0"><i class="fas fa-history me-2"></i>Recent Orders</h5>
-                <a href="transactions.php" class="btn btn-outline-danger btn-sm">View All</a>
+                <h5 class="admin-section-title mb-0"><i class="fas fa-history me-2"></i>Recent Transactions</h5>
+                <a href="transactions.php" class="btn btn-outline-danger btn-sm">View Transactions</a>
             </div>
             <?php if (empty($recentOrders)): ?>
                 <div class="text-center py-4">
                     <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                    <p class="text-muted">No recent orders found</p>
+                    <p class="text-muted">No recent transactions to show.</p>
                 </div>
             <?php else: ?>
                 <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -365,7 +534,7 @@ ob_start();
                         <tbody>
                             <?php foreach ($recentOrders as $order): ?>
                             <tr>
-                                <td><strong class="text-danger" style="font-size: 0.85rem;"><?php echo htmlspecialchars($order['order_number']); ?></strong></td>
+                                <td><strong class="text-brand" style="font-size: 0.85rem;"><?php echo htmlspecialchars($order['order_number']); ?></strong></td>
                                 <td><small><?php echo htmlspecialchars($order['first_name'] . ' ' . $order['last_name']); ?></small></td>
                                 <td><strong style="font-size: 0.85rem;"><?php echo formatCurrency($order['total_amount']); ?></strong></td>
                                 <td><small class="text-muted"><?php echo Layout::getTimeAgo($order['created_at']); ?></small></td>
@@ -382,29 +551,29 @@ ob_start();
     <div class="col-xl-4 mb-3">
         <div class="admin-dashboard-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="admin-section-title mb-0"><i class="fas fa-exclamation-circle me-2"></i>Low Stock Alert</h5>
-                <span class="badge bg-danger"><?php echo count($lowStockProducts); ?> Items</span>
+                <h5 class="admin-section-title mb-0"><i class="fas fa-exclamation-circle me-2"></i>Low Stock Items</h5>
+                <span class="badge badge-brand"><?php echo count($lowStockProducts); ?> Items</span>
             </div>
             <?php if (empty($lowStockProducts)): ?>
                 <div class="text-center py-4">
                     <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                    <p class="text-muted">All items are well stocked</p>
+                    <p class="text-muted">All tracked items are sufficiently stocked.</p>
                 </div>
             <?php else: ?>
                 <div style="max-height: 350px; overflow-y: auto;">
                     <?php foreach (array_slice($lowStockProducts, 0, 8) as $product): ?>
-                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 compact-list-item">
                         <div>
                             <div class="fw-bold text-dark" style="font-size: 0.9rem;"><?php echo htmlspecialchars($product['name']); ?></div>
-                            <small class="text-muted">Stock: <?php echo $product['stock_quantity']; ?></small>
+                            <small class="text-muted">Current stock: <?php echo $product['stock_quantity']; ?></small>
                         </div>
-                        <span class="badge bg-danger"><?php echo $product['stock_quantity']; ?> left</span>
+                        <span class="badge badge-brand"><?php echo $product['stock_quantity']; ?> remaining</span>
                     </div>
                     <?php endforeach; ?>
                 </div>
                 <div class="text-center mt-3">
                     <a href="inventory.php" class="btn btn-sm btn-outline-danger">
-                        <i class="fas fa-boxes me-1"></i>Manage Inventory
+                        <i class="fas fa-boxes me-1"></i>Open Inventory
                     </a>
                 </div>
             <?php endif; ?>
@@ -414,18 +583,18 @@ ob_start();
     <!-- Top Products -->
     <div class="col-xl-3 mb-3">
         <div class="admin-dashboard-card">
-            <h5 class="admin-section-title"><i class="fas fa-fire me-2"></i>Top 3 Products</h5>
+            <h5 class="admin-section-title"><i class="fas fa-fire me-2"></i>Top Products</h5>
             <?php if (empty($topProducts)): ?>
                 <div class="text-center py-4">
                     <i class="fas fa-box-open fa-2x text-muted mb-2"></i>
-                    <p class="text-muted mb-0">No sales data</p>
+                    <p class="text-muted mb-0">No sales data available yet.</p>
                 </div>
             <?php else: ?>
                 <div style="max-height: 400px; overflow-y: auto;">
                     <?php foreach (array_slice($topProducts, 0, 3) as $index => $product): ?>
-                    <div class="mb-3 p-3 bg-light rounded">
+                    <div class="mb-3 p-3 compact-list-item">
                         <div class="d-flex align-items-center mb-2">
-                            <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 35px; height: 35px; font-size: 1rem; font-weight: bold;">
+                            <div class="bg-brand rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 35px; height: 35px; font-size: 1rem; font-weight: bold;">
                                 <?= $index + 1 ?>
                             </div>
                             <div class="fw-bold"><?php echo htmlspecialchars($product['name']); ?></div>
@@ -444,37 +613,85 @@ ob_start();
 
 
 <script>
+const adminChartLabels = <?php echo json_encode($salesDates); ?>;
+const adminSalesSeries = <?php echo json_encode($salesAmounts); ?>;
+const adminOrderSeries = <?php echo json_encode($salesOrders); ?>;
+const adminPaymentLabels = <?php echo json_encode($paymentLabels); ?>;
+const adminPaymentSeries = <?php echo json_encode($paymentCounts); ?>;
+const adminPaymentTotals = <?php echo json_encode($paymentTotals); ?>;
+const adminCategoryLabels = <?php echo json_encode($categoryLabels); ?>;
+const adminCategorySeries = <?php echo json_encode($categoryCounts); ?>;
+const adminCurrency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
+
+function createAdminGradient(context, colorStops) {
+    const gradient = context.createLinearGradient(0, 0, 0, 320);
+    colorStops.forEach(stop => gradient.addColorStop(stop.position, stop.color));
+    return gradient;
+}
+
 // Sales Trend Chart
 const adminSalesCtx = document.getElementById('adminSalesTrendChart');
+if (adminSalesCtx) {
+const salesGradient = createAdminGradient(adminSalesCtx.getContext('2d'), [
+    { position: 0, color: 'rgba(159, 122, 28, 0.34)' },
+    { position: 1, color: 'rgba(159, 122, 28, 0.02)' }
+]);
+
 new Chart(adminSalesCtx, {
     type: 'line',
     data: {
-        labels: <?php echo json_encode($salesDates); ?>,
+        labels: adminChartLabels,
         datasets: [{
-            label: 'Sales (₱)',
-            data: <?php echo json_encode($salesAmounts); ?>,
-            borderColor: '#dc3545',
-            backgroundColor: 'rgba(220, 53, 69, 0.1)',
-            tension: 0.4,
+            label: 'Sales (PHP)',
+            data: adminSalesSeries,
+            borderColor: '#9F7A1C',
+            backgroundColor: salesGradient,
+            pointBackgroundColor: '#fff7db',
+            pointBorderColor: '#9F7A1C',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 3,
+            tension: 0.38,
             fill: true,
             yAxisID: 'y'
         }, {
             label: 'Orders',
-            data: <?php echo json_encode($salesOrders); ?>,
+            data: adminOrderSeries,
             borderColor: '#0d6efd',
-            backgroundColor: 'rgba(13, 110, 253, 0.1)',
-            tension: 0.4,
-            fill: true,
+            backgroundColor: 'rgba(13, 110, 253, 0.9)',
+            borderWidth: 2,
+            borderDash: [6, 6],
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            tension: 0.3,
+            fill: false,
             yAxisID: 'y1'
         }]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
         plugins: {
             legend: {
                 display: true,
                 position: 'top'
+            },
+            tooltip: {
+                backgroundColor: 'rgba(23, 32, 51, 0.94)',
+                padding: 12,
+                callbacks: {
+                    label(context) {
+                        if (context.dataset.yAxisID === 'y') {
+                            return `${context.dataset.label}: ${adminCurrency.format(context.parsed.y || 0)}`;
+                        }
+                        return `${context.dataset.label}: ${context.parsed.y || 0}`;
+                    }
+                }
             }
         },
         scales: {
@@ -482,15 +699,28 @@ new Chart(adminSalesCtx, {
                 type: 'linear',
                 display: true,
                 position: 'left',
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(23, 32, 51, 0.06)'
+                },
+                ticks: {
+                    callback(value) {
+                        return adminCurrency.format(value);
+                    }
+                },
                 title: {
                     display: true,
-                    text: 'Sales (₱)'
+                    text: 'Sales (PHP)'
                 }
             },
             y1: {
                 type: 'linear',
                 display: true,
                 position: 'right',
+                beginAtZero: true,
+                ticks: {
+                    precision: 0
+                },
                 title: {
                     display: true,
                     text: 'Orders'
@@ -502,23 +732,26 @@ new Chart(adminSalesCtx, {
         }
     }
 });
+}
 
 // Payment Method Chart
 const adminPaymentCtx = document.getElementById('adminPaymentMethodChart');
+if (adminPaymentCtx) {
 new Chart(adminPaymentCtx, {
-    type: 'doughnut',
+    type: 'polarArea',
     data: {
-        labels: <?php echo json_encode(array_map(function($pm) { return ucfirst($pm['payment_method']); }, $paymentMethods)); ?>,
+        labels: adminPaymentLabels,
         datasets: [{
-            data: <?php echo json_encode(array_map(function($pm) { return $pm['count']; }, $paymentMethods)); ?>,
+            data: adminPaymentSeries,
             backgroundColor: [
-                '#28a745',
-                '#17a2b8',
-                '#ffc107',
-                '#dc3545'
+                'rgba(40, 167, 69, 0.78)',
+                'rgba(23, 162, 184, 0.78)',
+                'rgba(255, 193, 7, 0.8)',
+                'rgba(199, 154, 43, 0.82)'
             ],
             borderWidth: 2,
-            borderColor: '#fff'
+            borderColor: '#fff',
+            hoverOffset: 10
         }]
     },
     options: {
@@ -528,10 +761,90 @@ new Chart(adminPaymentCtx, {
             legend: {
                 display: true,
                 position: 'bottom'
+            },
+            tooltip: {
+                callbacks: {
+                    label(context) {
+                        const index = context.dataIndex;
+                        const count = adminPaymentSeries[index] || 0;
+                        const total = adminPaymentTotals[index] || 0;
+                        return `${context.label}: ${count} txns, ${adminCurrency.format(total)}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            r: {
+                grid: {
+                    color: 'rgba(23, 32, 51, 0.08)'
+                },
+                ticks: {
+                    backdropColor: 'transparent',
+                    precision: 0
+                }
             }
         }
     }
 });
+}
+
+const adminCategoryCtx = document.getElementById('adminCategoryChart');
+if (adminCategoryCtx) {
+new Chart(adminCategoryCtx, {
+    type: 'bar',
+    data: {
+        labels: adminCategoryLabels,
+        datasets: [{
+            label: 'Products',
+            data: adminCategorySeries,
+            backgroundColor: [
+                '#D4AF37',
+                '#0d6efd',
+                '#17a2b8',
+                '#28a745',
+                '#f39c12',
+                '#9b59b6'
+            ],
+            borderRadius: 12,
+            borderSkipped: false,
+            maxBarThickness: 42
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                callbacks: {
+                    label(context) {
+                        return `Products: ${context.parsed.x || 0}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(23, 32, 51, 0.06)'
+                },
+                ticks: {
+                    precision: 0
+                }
+            },
+            y: {
+                grid: {
+                    display: false
+                }
+            }
+        }
+    }
+});
+}
 </script>
 
 

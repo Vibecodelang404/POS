@@ -198,7 +198,6 @@ ob_start();
                             <tr>
                                 <th>Order #</th>
                                 <th>Date & Time</th>
-                                <th>Cashier</th>
                                 <th>Total Amount</th>
                                 <th>Status</th>
                                 <th class="no-print">Actions</th>
@@ -207,7 +206,7 @@ ob_start();
                         <tbody>
                             <?php if (empty($transactions)): ?>
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted py-4">
+                                    <td colspan="5" class="text-center text-muted py-4">
                                         <i class="fas fa-info-circle me-2"></i>No transactions found
                                     </td>
                                 </tr>
@@ -220,12 +219,6 @@ ob_start();
                                         <td>
                                             <div><?php echo date('M j, Y', strtotime($t['date'])); ?></div>
                                             <small class="text-muted"><?php echo date('g:i A', strtotime($t['date'])); ?></small>
-                                        </td>
-                                        <td>
-                                            <?php 
-                                            $cashierName = trim(($t['first_name'] ?? '') . ' ' . ($t['last_name'] ?? ''));
-                                            echo htmlspecialchars($cashierName ?: $t['username'] ?: 'Unknown');
-                                            ?>
                                         </td>
                                         <td>
                                             <strong class="text-success"><?php echo formatCurrency($t['total_amount']); ?></strong>
@@ -279,6 +272,19 @@ ob_start();
 </div>
 
 <script>
+function getTransactionItemUnitPrice(item) {
+    return parseFloat(item.unit_price ?? item.price ?? 0);
+}
+
+function getTransactionItemTotal(item) {
+    const storedTotal = parseFloat(item.total_price ?? item.total ?? NaN);
+    if (!Number.isNaN(storedTotal)) {
+        return storedTotal;
+    }
+
+    return getTransactionItemUnitPrice(item) * parseInt(item.quantity || 0, 10);
+}
+
 // View transaction details in modal
 function viewTransactionDetails(transactionId) {
     const modal = new bootstrap.Modal(document.getElementById('transactionDetailsModal'));
@@ -324,7 +330,9 @@ function viewTransactionDetails(transactionId) {
                 
                 if (items.length > 0) {
                     items.forEach(item => {
-                        const itemTotal = parseFloat(item.price) * parseInt(item.quantity);
+                        const itemPrice = getTransactionItemUnitPrice(item);
+                        const itemTotal = getTransactionItemTotal(item);
+                        item.price = itemPrice;
                         html += '<tr>';
                         html += '<td>' + item.product_name + '</td>';
                         html += '<td class="text-center">' + item.quantity + '</td>';
@@ -342,12 +350,15 @@ function viewTransactionDetails(transactionId) {
                 html += '<div class="row text-end">';
                 html += '<div class="col-md-4 offset-md-8">';
                 html += '<table class="table table-borderless table-sm">';
-                const discount = parseFloat(t.discount || 0);
-                const subtotal = parseFloat(t.subtotal || t.total_amount || 0);
-                const tax = parseFloat(t.tax || 0);
-                html += '<tr><td><strong>Subtotal:</strong></td><td>₱' + subtotal.toFixed(2) + '</td></tr>';
+                const grossSubtotal = items.reduce((sum, item) => sum + getTransactionItemTotal(item), 0);
+                const discount = parseFloat(t.discount_amount || 0);
+                const total = parseFloat(t.total_amount || 0);
+                const tax = parseFloat(t.tax_amount || 0);
+                const vatableSales = parseFloat(t.subtotal || Math.max(total - tax, 0) || 0);
+                html += '<tr><td><strong>Subtotal:</strong></td><td>₱' + grossSubtotal.toFixed(2) + '</td></tr>';
                 if (discount > 0) html += '<tr><td><strong>Discount:</strong></td><td>-₱' + discount.toFixed(2) + '</td></tr>';
-                if (tax > 0) html += '<tr><td><strong>Tax (12%):</strong></td><td>₱' + tax.toFixed(2) + '</td></tr>';
+                html += '<tr><td><strong>VATable Sales:</strong></td><td>₱' + vatableSales.toFixed(2) + '</td></tr>';
+                if (tax > 0) html += '<tr><td><strong>VAT Included (12%):</strong></td><td>₱' + tax.toFixed(2) + '</td></tr>';
                 html += '<tr><td><strong class="fs-5">Total:</strong></td><td><strong class="fs-5">₱' + parseFloat(t.total_amount).toFixed(2) + '</strong></td></tr>';
                 html += '</table>';
                 html += '</div></div>';
@@ -392,7 +403,7 @@ function printTransactionModal() {
     printContent += '<tr><th style="text-align: left; border-bottom: 1px solid #000; padding: 5px;">Item</th><th style="text-align: center; border-bottom: 1px solid #000; padding: 5px;">Qty</th><th style="text-align: right; border-bottom: 1px solid #000; padding: 5px;">Total</th></tr>';
     
     items.forEach(item => {
-        const itemTotal = parseFloat(item.price) * parseInt(item.quantity);
+        const itemTotal = getTransactionItemTotal(item);
         printContent += '<tr><td style="text-align: left; padding: 5px;">' + item.product_name + '</td>';
         printContent += '<td style="text-align: center; padding: 5px;">' + item.quantity + '</td>';
         printContent += '<td style="text-align: right; padding: 5px;">₱' + itemTotal.toFixed(2) + '</td></tr>';
@@ -401,9 +412,18 @@ function printTransactionModal() {
     printContent += '</table>';
     printContent += '<hr style="border: 1px solid #000; margin: 15px 0;">';
     
-    printContent += '<p style="text-align: right; margin: 10px 0;"><strong>Total: ₱' + parseFloat(t.total_amount).toFixed(2) + '</strong></p>';
+    const grossSubtotal = items.reduce((sum, item) => sum + getTransactionItemTotal(item), 0);
+    const discount = parseFloat(t.discount_amount || 0);
+    const total = parseFloat(t.total_amount || 0);
+    const tax = parseFloat(t.tax_amount || 0);
+    const vatableSales = parseFloat(t.subtotal || Math.max(total - tax, 0) || 0);
+    printContent += '<p style="text-align: right; margin: 6px 0;"><strong>Subtotal: ₱' + grossSubtotal.toFixed(2) + '</strong></p>';
+    if (discount > 0) printContent += '<p style="text-align: right; margin: 6px 0;"><strong>Discount: -₱' + discount.toFixed(2) + '</strong></p>';
+    printContent += '<p style="text-align: right; margin: 6px 0;"><strong>VATable Sales: ₱' + vatableSales.toFixed(2) + '</strong></p>';
+    if (tax > 0) printContent += '<p style="text-align: right; margin: 6px 0;"><strong>VAT Included (12%): ₱' + tax.toFixed(2) + '</strong></p>';
+    printContent += '<p style="text-align: right; margin: 10px 0;"><strong>Total: ₱' + total.toFixed(2) + '</strong></p>';
     printContent += '<p style="text-align: right; margin: 10px 0;"><strong>Received: ₱' + parseFloat(t.amount_received || t.total_amount || 0).toFixed(2) + '</strong></p>';
-    printContent += '<p style="text-align: right; margin: 10px 0;"><strong>Change: ₱' + (parseFloat(t.amount_received || t.total_amount || 0) - parseFloat(t.total_amount || 0)).toFixed(2) + '</strong></p>';
+    printContent += '<p style="text-align: right; margin: 10px 0;"><strong>Change: ₱' + (parseFloat(t.amount_received || t.total_amount || 0) - total).toFixed(2) + '</strong></p>';
     
     printContent += '<hr style="border: 1px solid #000; margin: 15px 0;">';
     printContent += '<p style="font-size: 12px; margin: 10px 0;">Thank you for your purchase!</p>';
@@ -493,10 +513,13 @@ function printTransactionModal() {
                         </thead>
                         <tbody>
                             <?php 
-                            $subtotal = 0;
+                            $grossSubtotal = 0;
+                            $discountAmount = (float) ($selectedTransaction['discount_amount'] ?? 0);
+                            $taxAmount = (float) ($selectedTransaction['tax_amount'] ?? 0);
+                            $vatableSales = (float) ($selectedTransaction['subtotal'] ?? max(((float) $selectedTransaction['total_amount']) - $taxAmount, 0));
                             foreach ($details as $d): 
                                 $itemTotal = $d['total_price'];
-                                $subtotal += $itemTotal;
+                                $grossSubtotal += $itemTotal;
                             ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($d['name']); ?></td>
@@ -509,12 +532,24 @@ function printTransactionModal() {
                         <tfoot>
                             <tr>
                                 <th colspan="3" class="text-end">Subtotal:</th>
-                                <th class="text-end"><?php echo formatCurrency($subtotal); ?></th>
+                                <th class="text-end"><?php echo formatCurrency($grossSubtotal); ?></th>
                             </tr>
+                            <?php if ($discountAmount > 0): ?>
                             <tr>
-                                <th colspan="3" class="text-end">Tax (12%):</th>
-                                <th class="text-end"><?php echo formatCurrency($selectedTransaction['tax_amount'] ?? ($subtotal * 0.12)); ?></th>
+                                <th colspan="3" class="text-end">Discount:</th>
+                                <th class="text-end">-<?php echo formatCurrency($discountAmount); ?></th>
                             </tr>
+                            <?php endif; ?>
+                            <tr>
+                                <th colspan="3" class="text-end">VATable Sales:</th>
+                                <th class="text-end"><?php echo formatCurrency($vatableSales); ?></th>
+                            </tr>
+                            <?php if ($taxAmount > 0): ?>
+                            <tr>
+                                <th colspan="3" class="text-end">VAT Included (12%):</th>
+                                <th class="text-end"><?php echo formatCurrency($taxAmount); ?></th>
+                            </tr>
+                            <?php endif; ?>
                             <tr class="table-success">
                                 <th colspan="3" class="text-end">TOTAL:</th>
                                 <th class="text-end"><?php echo formatCurrency($selectedTransaction['total_amount']); ?></th>

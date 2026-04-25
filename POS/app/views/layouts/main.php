@@ -7,12 +7,17 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --accent: #C79A2B;
+            --accent-deep: #9F7A1C;
+            --accent-rgb: 170, 140, 44;
+        }
         body {
             background-color: #f8f9fa;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .sidebar {
-            background: linear-gradient(180deg, <?php echo $role === 'admin' ? '#dc3545' : '#28a745'; ?> 0%, <?php echo $role === 'admin' ? '#b02a37' : '#1e7e34'; ?> 100%);
+            background: linear-gradient(180deg, #9F7A1C 0%, #C79A2B 55%, #E1BE62 100%);
             min-height: 100vh;
             width: 250px;
             position: fixed;
@@ -96,7 +101,7 @@
             border-radius: 10px;
             padding: 1.5rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            border-left: 4px solid <?php echo $role === 'admin' ? '#dc3545' : '#28a745'; ?>;
+            border-left: 4px solid var(--accent-deep);
             transition: transform 0.2s;
         }
         .stats-card:hover {
@@ -107,6 +112,28 @@
             border-radius: 8px;
             padding: 0.5rem 1rem;
             font-weight: 500;
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+            border-color: var(--accent-deep);
+            color: #fff;
+        }
+        .btn-danger:hover,
+        .btn-danger:focus {
+            background: linear-gradient(135deg, var(--accent-deep), #886617);
+            border-color: #886617;
+            color: #fff;
+        }
+        .btn-outline-danger {
+            color: var(--accent-deep);
+            border-color: rgba(var(--accent-rgb), 0.38);
+            background: rgba(var(--accent-rgb), 0.06);
+        }
+        .btn-outline-danger:hover,
+        .btn-outline-danger:focus {
+            background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+            border-color: var(--accent-deep);
+            color: #fff;
         }
         @media (max-width: 768px) {
             .sidebar {
@@ -160,7 +187,7 @@
                 <button class="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
                     <i class="fas fa-user-circle me-2"></i>
                     <?php echo htmlspecialchars($_SESSION['first_name'] . ' ' . $_SESSION['last_name']); ?>
-                    <span class="badge bg-<?php echo $role === 'admin' ? 'danger' : 'success'; ?> ms-2"><?php echo ucfirst($role); ?></span>
+                    <span class="badge ms-2" style="background: linear-gradient(135deg, var(--accent), var(--accent-deep)); color: #fff;"><?php echo ucfirst($role); ?></span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><hr class="dropdown-divider"></li>

@@ -15,6 +15,10 @@
         :root {
             --brand: #D4AF37;
             --brand-deep: #AA8C2C;
+            --accent: #C79A2B;
+            --accent-deep: #9F7A1C;
+            --accent-soft: #F3E4A8;
+            --accent-rgb: 170, 140, 44;
             --ink: #172033;
             --muted: #667085;
             --line: rgba(23, 32, 51, 0.08);
@@ -45,6 +49,8 @@
             z-index: 1000;
             transition: all 0.3s;
             box-shadow: 20px 0 50px rgba(15, 23, 42, 0.18);
+            display: flex;
+            flex-direction: column;
         }
         .sidebar-header {
             padding: 2rem 1.6rem 1.5rem;
@@ -65,6 +71,7 @@
         }
         .sidebar-menu {
             padding: 1.25rem 0.9rem;
+            flex: 1;
         }
         .sidebar-menu .nav-link {
             color: rgba(23, 32, 51, 0.8);
@@ -89,9 +96,13 @@
             margin-right: 12px;
             font-size: 0.95rem;
         }
+        .nav-label {
+            transition: opacity 0.2s ease;
+        }
         .main-content {
             margin-left: 274px;
             min-height: 100vh;
+            transition: margin-left 0.3s ease;
         }
         .top-navbar {
             background: rgba(255,255,255,0.74);
@@ -242,7 +253,7 @@
             font-weight: 700;
         }
         .panel-hero {
-            background: linear-gradient(135deg, rgba(180,35,42,0.94), rgba(127,29,29,0.92) 52%, rgba(30,64,175,0.84));
+            background: linear-gradient(135deg, rgba(159, 122, 28, 0.96), rgba(199, 154, 43, 0.94) 52%, rgba(225, 190, 98, 0.92));
             border-radius: 28px;
             padding: 1.9rem;
             color: #fff;
@@ -285,6 +296,127 @@
             font-weight: 800;
             letter-spacing: -0.03em;
         }
+        .text-brand {
+            color: var(--accent-deep) !important;
+        }
+        .bg-brand,
+        .badge-brand {
+            background: linear-gradient(135deg, var(--accent), var(--accent-deep)) !important;
+            color: #fff !important;
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+            border-color: var(--accent-deep);
+            color: #fff;
+        }
+        .btn-danger:hover,
+        .btn-danger:focus {
+            background: linear-gradient(135deg, var(--accent-deep), #886617);
+            border-color: #886617;
+            color: #fff;
+        }
+        .btn-outline-danger {
+            color: var(--accent-deep);
+            border-color: rgba(var(--accent-rgb), 0.38);
+            background: rgba(var(--accent-rgb), 0.06);
+        }
+        .btn-outline-danger:hover,
+        .btn-outline-danger:focus {
+            background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+            border-color: var(--accent-deep);
+            color: #fff;
+        }
+        .bg-danger {
+            background: linear-gradient(135deg, var(--accent), var(--accent-deep)) !important;
+        }
+        .border-danger {
+            border-color: rgba(var(--accent-rgb), 0.35) !important;
+        }
+        .table-danger {
+            --bs-table-bg: rgba(var(--accent-rgb), 0.14);
+            --bs-table-border-color: rgba(var(--accent-rgb), 0.22);
+        }
+        .sidebar-footer {
+            padding: 1rem 0.9rem 1.25rem;
+            border-top: 1px solid rgba(170, 140, 44, 0.22);
+        }
+        .sidebar-profile {
+            background: rgba(255, 255, 255, 0.55);
+            border: 1px solid rgba(23, 32, 51, 0.08);
+            border-radius: 18px;
+            padding: 1rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        }
+        .sidebar-profile-name {
+            color: #172033;
+            font-weight: 800;
+            font-family: 'Manrope', sans-serif;
+            margin-bottom: 0.15rem;
+        }
+        .sidebar-profile-role {
+            color: rgba(23, 32, 51, 0.68);
+            font-size: 0.84rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.85rem;
+        }
+        .sidebar-logout {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            border-radius: 14px;
+            font-weight: 700;
+        }
+        body.sidebar-collapsed .sidebar {
+            width: 92px;
+        }
+        body.sidebar-collapsed .main-content {
+            margin-left: 92px;
+        }
+        body.sidebar-collapsed .sidebar-header {
+            padding: 1.5rem 0.75rem 1.25rem;
+        }
+        body.sidebar-collapsed .sidebar-header small,
+        body.sidebar-collapsed .nav-label,
+        body.sidebar-collapsed .sidebar-profile-name,
+        body.sidebar-collapsed .sidebar-profile-role,
+        body.sidebar-collapsed .sidebar-logout span {
+            display: none;
+        }
+        body.sidebar-collapsed .sidebar-header h4 {
+            font-size: 0;
+        }
+        body.sidebar-collapsed .sidebar-menu {
+            padding: 1rem 0.6rem;
+        }
+        body.sidebar-collapsed .sidebar-menu .nav-link {
+            justify-content: center;
+            padding: 0.88rem 0.75rem;
+        }
+        body.sidebar-collapsed .sidebar-menu .nav-link i {
+            margin-right: 0;
+            width: auto;
+            font-size: 1.05rem;
+        }
+        body.sidebar-collapsed .sidebar-profile {
+            padding: 0.85rem 0.6rem;
+            text-align: center;
+        }
+        body.sidebar-collapsed .sidebar-profile .d-flex {
+            justify-content: center;
+            margin-bottom: 0.75rem !important;
+        }
+        body.sidebar-collapsed .sidebar-profile .fa-user-circle {
+            margin-right: 0 !important;
+        }
+        body.sidebar-collapsed .sidebar-logout {
+            padding-left: 0;
+            padding-right: 0;
+        }
+        body.sidebar-collapsed .sidebar-logout i {
+            margin-right: 0;
+        }
         .text-muted {
             color: var(--muted) !important;
         }
@@ -305,6 +437,26 @@
     </style>
 </head>
 <body>
+    <?php
+    if (!isset($_SESSION['first_name']) || !isset($_SESSION['last_name'])) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare("SELECT first_name, last_name FROM users WHERE id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($user) {
+                $_SESSION['first_name'] = $user['first_name'];
+                $_SESSION['last_name'] = $user['last_name'];
+            }
+        } catch (Exception $e) {
+            // Fallback if database query fails
+        }
+    }
+
+    $firstName = $_SESSION['first_name'] ?? $_SESSION['username'] ?? 'User';
+    $lastName = $_SESSION['last_name'] ?? '';
+    $displayName = htmlspecialchars(trim($firstName . ' ' . $lastName));
+    ?>
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -318,42 +470,57 @@
                 <li class="nav-item">
                     <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>" href="dashboard.php">
                         <i class="fas fa-tachometer-alt"></i>
-                        Dashboard
+                        <span class="nav-label">Dashboard</span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'pos.php' ? 'active' : ''; ?>" href="pos.php">
                         <i class="fas fa-shopping-cart"></i>
-                        Point of Sale
+                        <span class="nav-label">Point of Sale</span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'transactions.php' ? 'active' : ''; ?>" href="transactions.php">
                         <i class="fas fa-receipt"></i>
-                        Transaction History
+                        <span class="nav-label">Transaction History</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'sales.php' ? 'active' : ''; ?>" href="sales.php">
+                        <i class="fas fa-chart-line"></i>
+                        <span class="nav-label">Sales Summary</span>
                     </a>
                 </li>
 
                 <li class="nav-item">
                     <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'active' : ''; ?>" href="inventory.php">
                         <i class="fas fa-eye"></i>
-                        View Inventory
+                        <span class="nav-label">View Inventory</span>
                     </a>
                 </li>
-                <!-- <li class="nav-item">
-                    <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'view_shifts.php' ? 'active' : ''; ?>" href="view_shifts.php">
-                        <i class="fas fa-calendar-alt"></i>
-                        View Shifts
-                    </a>
-                </li> -->
                 <li class="nav-item">
                     <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'account_settings.php' ? 'active' : ''; ?>" href="account_settings.php">
                         <i class="fas fa-user-cog"></i>
-                        Account Settings
+                        <span class="nav-label">Account Settings</span>
                     </a>
                 </li>
             </ul>
         </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-profile">
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <i class="fas fa-user-circle fa-2x" style="color:#172033;"></i>
+                    <div>
+                        <div class="sidebar-profile-name"><?php echo $displayName; ?></div>
+                        <div class="sidebar-profile-role">Cashier</div>
+                    </div>
+                </div>
+                <a class="btn btn-dark w-100 sidebar-logout" href="<?php echo BASE_URL; ?>public/logout.php">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>
     </div>
 
     <!-- Main Content -->
@@ -361,46 +528,14 @@
         <!-- Top Navigation -->
         <nav class="top-navbar d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center">
-                <button class="btn btn-light d-md-none me-3" id="sidebar-toggle">
+                <button class="btn btn-light me-3" id="sidebar-toggle" type="button" aria-label="Toggle sidebar">
                     <i class="fas fa-bars"></i>
                 </button>
                 <div>
-                    <div class="text-uppercase text-muted small fw-bold" style="letter-spacing: 0.14em;">Retail Operations Console</div>
                     <h5 class="mb-0 section-heading"><?php echo isset($page_title) ? $page_title : 'Dashboard'; ?></h5>
                 </div>
             </div>
-            
-            <div class="dropdown">
-                <button class="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                    <i class="fas fa-user-circle me-2"></i>
-                    <?php 
-                    // Check if session variables are missing and refresh them from database
-                    if (!isset($_SESSION['first_name']) || !isset($_SESSION['last_name'])) {
-                        try {
-                            $db = Database::getInstance()->getConnection();
-                            $stmt = $db->prepare("SELECT first_name, last_name FROM users WHERE id = ?");
-                            $stmt->execute([$_SESSION['user_id']]);
-                            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-                            if ($user) {
-                                $_SESSION['first_name'] = $user['first_name'];
-                                $_SESSION['last_name'] = $user['last_name'];
-                            }
-                        } catch(Exception $e) {
-                            // Fallback if database query fails
-                        }
-                    }
-                    
-                    $firstName = $_SESSION['first_name'] ?? $_SESSION['username'] ?? 'User';
-                    $lastName = $_SESSION['last_name'] ?? '';
-                    echo htmlspecialchars(trim($firstName . ' ' . $lastName)); 
-                    ?>
-                    <span class="badge bg-success ms-2">Cashier</span>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>public/logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
-                </ul>
-            </div>
+            <div></div>
         </nav>
 
         <!-- Page Content -->
@@ -438,9 +573,14 @@
         };
     </script>
     <script>
-        // Sidebar toggle for mobile
+        // Sidebar toggle
         document.getElementById('sidebar-toggle')?.addEventListener('click', function() {
-            document.getElementById('sidebar').classList.toggle('show');
+            if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.toggle('show');
+                return;
+            }
+
+            document.body.classList.toggle('sidebar-collapsed');
         });
 
         // Close sidebar when clicking outside on mobile
@@ -452,6 +592,14 @@
                 if (!sidebar.contains(e.target) && !toggle.contains(e.target)) {
                     sidebar.classList.remove('show');
                 }
+            }
+        });
+
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                document.getElementById('sidebar')?.classList.remove('show');
+            } else {
+                document.body.classList.remove('sidebar-collapsed');
             }
         });
     </script>

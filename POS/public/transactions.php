@@ -50,17 +50,12 @@ $stmt = $db->prepare("SELECT DISTINCT u.id, u.first_name, u.last_name, u.usernam
 $stmt->execute();
 $cashiers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Build query with filters
-$sql = "SELECT o.*, u.first_name, u.last_name, u.username, o.created_at as date,
-               COUNT(oi.id) as item_count
-        FROM orders o 
-        LEFT JOIN users u ON o.user_id = u.id 
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-        WHERE 1=1";
+// Build shared filters so the table and summary cards describe the same dataset
+$filterSQL = " WHERE 1=1";
 $params = [];
 
 if ($search) {
-    $sql .= " AND (o.order_number LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.username LIKE ?)";
+    $filterSQL .= " AND (o.order_number LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.username LIKE ?)";
     $params[] = "%{$search}%";
     $params[] = "%{$search}%";
     $params[] = "%{$search}%";
@@ -68,53 +63,55 @@ if ($search) {
 }
 
 if ($date_from) {
-    $sql .= " AND DATE(o.created_at) >= ?";
+    $filterSQL .= " AND DATE(o.created_at) >= ?";
     $params[] = $date_from;
 }
 
 if ($date_to) {
-    $sql .= " AND DATE(o.created_at) <= ?";
+    $filterSQL .= " AND DATE(o.created_at) <= ?";
     $params[] = $date_to;
 }
 
 if ($status) {
-    $sql .= " AND o.status = ?";
+    $filterSQL .= " AND o.status = ?";
     $params[] = $status;
 }
 
 if ($cashier) {
-    $sql .= " AND o.user_id = ?";
+    $filterSQL .= " AND o.user_id = ?";
     $params[] = $cashier;
 }
 
-$sql .= " GROUP BY o.id ORDER BY o.created_at DESC LIMIT " . (int)$limit;
+$transactionSQL = "SELECT o.*, u.first_name, u.last_name, u.username, o.created_at as date,
+                          COUNT(oi.id) as item_count
+                   FROM orders o
+                   LEFT JOIN users u ON o.user_id = u.id
+                   LEFT JOIN order_items oi ON o.id = oi.order_id" .
+                   $filterSQL .
+                   " GROUP BY o.id ORDER BY o.created_at DESC LIMIT " . (int) $limit;
 
-$stmt = $db->prepare($sql);
+$stmt = $db->prepare($transactionSQL);
 $stmt->execute($params);
 $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get summary statistics
-$summarySQL = "SELECT 
+// Get summary statistics from the same filtered/limited result set shown in the table
+$summarySQL = "SELECT
     COUNT(*) as total_transactions,
-    SUM(total_amount) as total_sales,
-    AVG(total_amount) as avg_transaction,
-    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count,
-    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count,
-    SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count
-FROM orders o WHERE 1=1";
-
-$summaryParams = [];
-if ($date_from) {
-    $summarySQL .= " AND DATE(o.created_at) >= ?";
-    $summaryParams[] = $date_from;
-}
-if ($date_to) {
-    $summarySQL .= " AND DATE(o.created_at) <= ?";
-    $summaryParams[] = $date_to;
-}
+    SUM(filtered.total_amount) as total_sales,
+    AVG(filtered.total_amount) as avg_transaction,
+    SUM(CASE WHEN filtered.status = 'completed' THEN 1 ELSE 0 END) as completed_count,
+    SUM(CASE WHEN filtered.status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+    SUM(CASE WHEN filtered.status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count
+FROM (
+    SELECT o.id, o.total_amount, o.status, o.created_at
+    FROM orders o
+    LEFT JOIN users u ON o.user_id = u.id" .
+    $filterSQL .
+    " ORDER BY o.created_at DESC LIMIT " . (int) $limit . "
+) filtered";
 
 $stmt = $db->prepare($summarySQL);
-$stmt->execute($summaryParams);
+$stmt->execute($params);
 $summary = $stmt->fetch(PDO::FETCH_ASSOC);
 
 // Get transaction details if requested
@@ -356,7 +353,7 @@ ob_start();
                                         <td>
                                             <strong class="text-success"><?php echo formatCurrency($t['total_amount']); ?></strong>
                                             <?php if ($t['tax_amount']): ?>
-                                                <br><small class="text-muted">Tax: <?php echo formatCurrency($t['tax_amount']); ?></small>
+                                                <br><small class="text-muted">VAT included: <?php echo formatCurrency($t['tax_amount']); ?></small>
                                             <?php endif; ?>
                                         </td>
                                         <td>
@@ -408,6 +405,42 @@ ob_start();
 </div>
 
 <script>
+const transactionCurrency = new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP'
+});
+
+function formatTransactionCurrency(value) {
+    return transactionCurrency.format(Number(value || 0));
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function getTransactionCashierName(transaction) {
+    const fullName = `${transaction.first_name || ''} ${transaction.last_name || ''}`.trim();
+    return fullName || transaction.username || 'Unknown';
+}
+
+function getTransactionItemUnitPrice(item) {
+    return parseFloat(item.unit_price ?? item.price ?? 0);
+}
+
+function getTransactionItemTotal(item) {
+    const storedTotal = parseFloat(item.total_price ?? item.total ?? NaN);
+    if (!Number.isNaN(storedTotal)) {
+        return storedTotal;
+    }
+
+    return getTransactionItemUnitPrice(item) * parseInt(item.quantity || 0, 10);
+}
+
 // View transaction details in modal
 function viewTransactionDetails(transactionId) {
     const modal = new bootstrap.Modal(document.getElementById('transactionDetailsModal'));
@@ -424,23 +457,27 @@ function viewTransactionDetails(transactionId) {
             if (data.success && data.transaction) {
                 const t = data.transaction;
                 const items = data.items || [];
+                const safeOrderNumber = escapeHtml(t.order_number || `ORD-${t.id}`);
+                const safeCashierName = escapeHtml(getTransactionCashierName(t));
+                const safeStatus = escapeHtml((t.status || '').charAt(0).toUpperCase() + (t.status || '').slice(1));
+                const safePaymentMethod = escapeHtml((t.payment_method || 'Cash').charAt(0).toUpperCase() + (t.payment_method || 'Cash').slice(1));
                 
                 let html = '<div class="transaction-modal-content">';
                 html += '<div class="row mb-3">';
                 html += '<div class="col-md-6">';
                 html += '<h6 class="fw-bold">Transaction Information</h6>';
                 html += '<table class="table table-borderless table-sm">';
-                html += '<tr><td><strong>Order Number:</strong></td><td>' + (t.order_number || 'ORD-' + t.id) + '</td></tr>';
+                html += '<tr><td><strong>Order Number:</strong></td><td>' + safeOrderNumber + '</td></tr>';
                 html += '<tr><td><strong>Date & Time:</strong></td><td>' + new Date(t.created_at).toLocaleString() + '</td></tr>';
-                html += '<tr><td><strong>Cashier:</strong></td><td>' + ((t.first_name || '') + ' ' + (t.last_name || '') || t.username || 'Unknown') + '</td></tr>';
+                html += '<tr><td><strong>Cashier:</strong></td><td>' + safeCashierName + '</td></tr>';
                 const statusBadge = t.status === 'completed' ? 'success' : (t.status === 'pending' ? 'warning' : 'danger');
-                html += '<tr><td><strong>Status:</strong></td><td><span class="badge bg-' + statusBadge + '">' + (t.status || '').charAt(0).toUpperCase() + (t.status || '').slice(1) + '</span></td></tr>';
+                html += '<tr><td><strong>Status:</strong></td><td><span class="badge bg-' + statusBadge + '">' + safeStatus + '</span></td></tr>';
                 html += '</table></div>';
                 
                 html += '<div class="col-md-6">';
                 html += '<h6 class="fw-bold">Payment Information</h6>';
                 html += '<table class="table table-borderless table-sm">';
-                html += '<tr><td><strong>Payment Method:</strong></td><td>' + (t.payment_method || 'Cash').charAt(0).toUpperCase() + (t.payment_method || 'Cash').slice(1) + '</td></tr>';
+                html += '<tr><td><strong>Payment Method:</strong></td><td>' + safePaymentMethod + '</td></tr>';
                 html += '<tr><td><strong>Amount Received:</strong></td><td>₱' + parseFloat(t.amount_received || t.total_amount || 0).toFixed(2) + '</td></tr>';
                 html += '<tr><td><strong>Change:</strong></td><td>₱' + ((parseFloat(t.amount_received || t.total_amount || 0) - parseFloat(t.total_amount || 0)).toFixed(2)) + '</td></tr>';
                 html += '</table></div></div>';
@@ -453,10 +490,12 @@ function viewTransactionDetails(transactionId) {
                 
                 if (items.length > 0) {
                     items.forEach(item => {
-                        const itemTotal = parseFloat(item.price) * parseInt(item.quantity);
+                        const itemPrice = getTransactionItemUnitPrice(item);
+                        const itemTotal = getTransactionItemTotal(item);
+                        item.price = itemPrice;
                         html += '<tr>';
-                        html += '<td>' + item.product_name + '</td>';
-                        html += '<td class="text-center">' + item.quantity + '</td>';
+                        html += '<td>' + escapeHtml(item.product_name) + '</td>';
+                        html += '<td class="text-center">' + escapeHtml(item.quantity) + '</td>';
                         html += '<td class="text-end">₱' + parseFloat(item.price).toFixed(2) + '</td>';
                         html += '<td class="text-end">₱' + itemTotal.toFixed(2) + '</td>';
                         html += '</tr>';
@@ -471,12 +510,15 @@ function viewTransactionDetails(transactionId) {
                 html += '<div class="row text-end">';
                 html += '<div class="col-md-4 offset-md-8">';
                 html += '<table class="table table-borderless table-sm">';
-                const discount = parseFloat(t.discount || 0);
-                const subtotal = parseFloat(t.subtotal || t.total_amount || 0);
-                const tax = parseFloat(t.tax || 0);
-                html += '<tr><td><strong>Subtotal:</strong></td><td>₱' + subtotal.toFixed(2) + '</td></tr>';
+                const grossSubtotal = items.reduce((sum, item) => sum + getTransactionItemTotal(item), 0);
+                const discount = parseFloat(t.discount_amount || 0);
+                const total = parseFloat(t.total_amount || 0);
+                const tax = parseFloat(t.tax_amount || 0);
+                const vatableSales = parseFloat(t.subtotal || Math.max(total - tax, 0) || 0);
+                html += '<tr><td><strong>Subtotal:</strong></td><td>₱' + grossSubtotal.toFixed(2) + '</td></tr>';
                 if (discount > 0) html += '<tr><td><strong>Discount:</strong></td><td>-₱' + discount.toFixed(2) + '</td></tr>';
-                if (tax > 0) html += '<tr><td><strong>Tax (12%):</strong></td><td>₱' + tax.toFixed(2) + '</td></tr>';
+                html += '<tr><td><strong>VATable Sales:</strong></td><td>₱' + vatableSales.toFixed(2) + '</td></tr>';
+                if (tax > 0) html += '<tr><td><strong>VAT Included (12%):</strong></td><td>₱' + tax.toFixed(2) + '</td></tr>';
                 html += '<tr><td><strong class="fs-5">Total:</strong></td><td><strong class="fs-5">₱' + parseFloat(t.total_amount).toFixed(2) + '</strong></td></tr>';
                 html += '</table>';
                 html += '</div></div>';
@@ -506,37 +548,49 @@ function printTransactionModal() {
     
     const t = window.currentTransactionForPrint.transaction;
     const items = window.currentTransactionForPrint.items || [];
+    const safeOrderNumber = escapeHtml(t.order_number || `ORD-${t.id}`);
+    const safeCashierName = escapeHtml(getTransactionCashierName(t));
+    const safePaymentMethod = escapeHtml(t.payment_method || 'Cash');
     
     let printContent = '<div style="max-width: 400px; margin: 0 auto; padding: 20px; text-align: center; font-family: monospace;">';
     printContent += '<h3 style="margin: 10px 0;">KAKAI\'S POS</h3>';
     printContent += '<p style="margin: 5px 0;">Official Transaction Receipt</p>';
     printContent += '<hr style="border: 1px solid #000; margin: 15px 0;">';
     
-    printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Order:</strong> ' + (t.order_number || 'ORD-' + t.id) + '</p>';
+    printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Order:</strong> ' + safeOrderNumber + '</p>';
     printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Date:</strong> ' + new Date(t.created_at).toLocaleString() + '</p>';
-    printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Cashier:</strong> ' + ((t.first_name || '') + ' ' + (t.last_name || '') || t.username || 'Unknown') + '</p>';
+    printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Cashier:</strong> ' + safeCashierName + '</p>';
     
     printContent += '<hr style="border: 1px solid #000; margin: 15px 0;">';
     printContent += '<table style="width: 100%; border-collapse: collapse; margin: 10px 0;">';
     printContent += '<tr><th style="text-align: left; border-bottom: 1px solid #000; padding: 5px;">Item</th><th style="text-align: center; border-bottom: 1px solid #000; padding: 5px;">Qty</th><th style="text-align: right; border-bottom: 1px solid #000; padding: 5px;">Total</th></tr>';
     
     items.forEach(item => {
-        const itemTotal = parseFloat(item.price) * parseInt(item.quantity);
-        printContent += '<tr><td style="text-align: left; padding: 5px;">' + item.product_name + '</td>';
-        printContent += '<td style="text-align: center; padding: 5px;">' + item.quantity + '</td>';
+        const itemTotal = getTransactionItemTotal(item);
+        printContent += '<tr><td style="text-align: left; padding: 5px;">' + escapeHtml(item.product_name) + '</td>';
+        printContent += '<td style="text-align: center; padding: 5px;">' + escapeHtml(item.quantity) + '</td>';
         printContent += '<td style="text-align: right; padding: 5px;">₱' + itemTotal.toFixed(2) + '</td></tr>';
     });
     
     printContent += '</table>';
     printContent += '<hr style="border: 1px solid #000; margin: 15px 0;">';
     
-    printContent += '<p style="text-align: right; margin: 10px 0;"><strong>Total: ₱' + parseFloat(t.total_amount).toFixed(2) + '</strong></p>';
+    const grossSubtotal = items.reduce((sum, item) => sum + getTransactionItemTotal(item), 0);
+    const discount = parseFloat(t.discount_amount || 0);
+    const total = parseFloat(t.total_amount || 0);
+    const tax = parseFloat(t.tax_amount || 0);
+    const vatableSales = parseFloat(t.subtotal || Math.max(total - tax, 0) || 0);
+    printContent += '<p style="text-align: right; margin: 6px 0;"><strong>Subtotal: ₱' + grossSubtotal.toFixed(2) + '</strong></p>';
+    if (discount > 0) printContent += '<p style="text-align: right; margin: 6px 0;"><strong>Discount: -₱' + discount.toFixed(2) + '</strong></p>';
+    printContent += '<p style="text-align: right; margin: 6px 0;"><strong>VATable Sales: ₱' + vatableSales.toFixed(2) + '</strong></p>';
+    if (tax > 0) printContent += '<p style="text-align: right; margin: 6px 0;"><strong>VAT Included (12%): ₱' + tax.toFixed(2) + '</strong></p>';
+    printContent += '<p style="text-align: right; margin: 10px 0;"><strong>Total: ₱' + total.toFixed(2) + '</strong></p>';
     printContent += '<p style="text-align: right; margin: 10px 0;"><strong>Received: ₱' + parseFloat(t.amount_received || t.total_amount || 0).toFixed(2) + '</strong></p>';
-    printContent += '<p style="text-align: right; margin: 10px 0;"><strong>Change: ₱' + (parseFloat(t.amount_received || t.total_amount || 0) - parseFloat(t.total_amount || 0)).toFixed(2) + '</strong></p>';
+    printContent += '<p style="text-align: right; margin: 10px 0;"><strong>Change: ₱' + (parseFloat(t.amount_received || t.total_amount || 0) - total).toFixed(2) + '</strong></p>';
     
     printContent += '<hr style="border: 1px solid #000; margin: 15px 0;">';
     printContent += '<p style="font-size: 12px; margin: 10px 0;">Thank you for your purchase!</p>';
-    printContent += '<p style="font-size: 10px; color: #666;">Payment: ' + (t.payment_method || 'Cash') + '</p>';
+    printContent += '<p style="font-size: 10px; color: #666;">Payment: ' + safePaymentMethod + '</p>';
     printContent += '</div>';
     
     const printWindow = window.open('', '', 'height=600,width=500');
@@ -639,13 +693,16 @@ function printTransactionModal() {
                         </thead>
                         <tbody>
                             <?php 
-                            $subtotal = 0;
+                            $grossSubtotal = 0;
+                            $discountAmount = (float) ($selectedTransaction['discount_amount'] ?? 0);
+                            $taxAmount = (float) ($selectedTransaction['tax_amount'] ?? 0);
+                            $vatableSales = (float) ($selectedTransaction['subtotal'] ?? max(((float) $selectedTransaction['total_amount']) - $taxAmount, 0));
                             foreach ($details as $d): 
                                 $itemTotal = $d['total_price'];
-                                $subtotal += $itemTotal;
+                                $grossSubtotal += $itemTotal;
                             ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($d['name']); ?></td>
+                                    <td><?php echo htmlspecialchars($d['product_name']); ?></td>
                                     <td class="text-center"><?php echo $d['quantity']; ?></td>
                                     <td class="text-end"><?php echo formatCurrency($d['unit_price']); ?></td>
                                     <td class="text-end"><?php echo formatCurrency($itemTotal); ?></td>
@@ -655,12 +712,24 @@ function printTransactionModal() {
                         <tfoot>
                             <tr>
                                 <th colspan="3" class="text-end">Subtotal:</th>
-                                <th class="text-end"><?php echo formatCurrency($subtotal); ?></th>
+                                <th class="text-end"><?php echo formatCurrency($grossSubtotal); ?></th>
                             </tr>
+                            <?php if ($discountAmount > 0): ?>
                             <tr>
-                                <th colspan="3" class="text-end">Tax (12%):</th>
-                                <th class="text-end"><?php echo formatCurrency($selectedTransaction['tax_amount'] ?? ($subtotal * 0.12)); ?></th>
+                                <th colspan="3" class="text-end">Discount:</th>
+                                <th class="text-end">-<?php echo formatCurrency($discountAmount); ?></th>
                             </tr>
+                            <?php endif; ?>
+                            <tr>
+                                <th colspan="3" class="text-end">VATable Sales:</th>
+                                <th class="text-end"><?php echo formatCurrency($vatableSales); ?></th>
+                            </tr>
+                            <?php if ($taxAmount > 0): ?>
+                            <tr>
+                                <th colspan="3" class="text-end">VAT Included (12%):</th>
+                                <th class="text-end"><?php echo formatCurrency($taxAmount); ?></th>
+                            </tr>
+                            <?php endif; ?>
                             <tr class="table-success">
                                 <th colspan="3" class="text-end">TOTAL:</th>
                                 <th class="text-end"><?php echo formatCurrency($selectedTransaction['total_amount']); ?></th>

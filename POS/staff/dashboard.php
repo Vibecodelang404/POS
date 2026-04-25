@@ -88,10 +88,28 @@ $dailySalesQuery = $db->query("
 ");
 $dailySales = $dailySalesQuery->fetchAll(PDO::FETCH_ASSOC);
 
+// Get category-wise inventory distribution
+$categoryDistributionQuery = $db->query("
+    SELECT 
+        COALESCE(c.name, 'Uncategorized') as category,
+        COUNT(p.id) as product_count
+    FROM products p
+    LEFT JOIN categories c ON c.id = p.category_id
+    GROUP BY COALESCE(c.name, 'Uncategorized')
+    ORDER BY product_count DESC
+    LIMIT 6
+");
+$categoryDistribution = $categoryDistributionQuery->fetchAll(PDO::FETCH_ASSOC);
+
 // Prepare data for charts
 $salesDates = array_map(function($item) { return date('M d', strtotime($item['date'])); }, $dailySales);
 $salesAmounts = array_map(function($item) { return $item['sales']; }, $dailySales);
 $salesOrders = array_map(function($item) { return $item['orders']; }, $dailySales);
+$paymentLabels = array_map(function($pm) { return ucfirst($pm['payment_method']); }, $paymentMethods);
+$paymentCounts = array_map(function($pm) { return (int) $pm['count']; }, $paymentMethods);
+$paymentTotals = array_map(function($pm) { return (float) $pm['total']; }, $paymentMethods);
+$categoryLabels = array_map(function($item) { return $item['category']; }, $categoryDistribution);
+$categoryCounts = array_map(function($item) { return (int) $item['product_count']; }, $categoryDistribution);
 
 $title = 'Staff Dashboard';
 
@@ -124,6 +142,40 @@ ob_start();
     position: relative;
     height: 300px;
 }
+.chart-shell {
+    position: relative;
+    border-radius: 20px;
+    padding: 1rem;
+    background:
+        radial-gradient(circle at top right, rgba(220, 53, 69, 0.12), transparent 24%),
+        linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.98));
+    border: 1px solid rgba(15, 23, 42, 0.06);
+}
+.chart-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.chart-summary-card {
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    padding: 0.85rem 1rem;
+}
+.chart-summary-label {
+    color: #667085;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.chart-summary-value {
+    font-family: 'Manrope', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #172033;
+}
 .section-title {
     font-size: 1.25rem;
     font-weight: 600;
@@ -132,6 +184,11 @@ ob_start();
     padding-bottom: 0.5rem;
     border-bottom: 2px solid #dc3545;
 }
+@media (max-width: 991px) {
+    .chart-summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 <div style="max-height: 95vh; overflow-y: auto;">
 
@@ -139,12 +196,12 @@ ob_start();
 <div class="panel-hero mb-4">
     <div class="row align-items-center g-4">
         <div class="col-lg-8">
-            <div class="hero-kicker">Inventory Intelligence</div>
+            <div class="hero-kicker">Inventory Overview</div>
             <h2 class="hero-title">Welcome, <?php echo htmlspecialchars($_SESSION['first_name'] ?? 'Staff'); ?>.</h2>
-            <p class="hero-subtitle">Track stock levels, sales activity, and operational alerts through a cleaner inventory dashboard designed to look presentation-ready while staying practical for daily use.</p>
+            <p class="hero-subtitle">Track stock levels, sales activity, and inventory issues from one working dashboard.</p>
         </div>
         <div class="col-lg-4 text-lg-end">
-            <span class="hero-chip"><i class="fas fa-boxes-stacked"></i> Inventory Monitoring Active</span>
+            <span class="hero-chip"><i class="fas fa-boxes-stacked"></i> Live Inventory Status</span>
         </div>
     </div>
 </div>
@@ -164,7 +221,7 @@ ob_start();
                 <div>
                     <h3 class="mb-0"><?= $inventoryStats['total_products'] ?></h3>
                     <p class="text-muted mb-0">Total Products</p>
-                    <small class="text-primary"><i class="fas fa-database me-1"></i>Active</small>
+                    <small class="text-primary"><i class="fas fa-database me-1"></i>Current catalog</small>
                 </div>
             </div>
         </div>
@@ -179,7 +236,7 @@ ob_start();
                 <div>
                     <h3 class="mb-0"><?= $inventoryStats['in_stock'] ?></h3>
                     <p class="text-muted mb-0">In Stock</p>
-                    <small class="text-success"><i class="fas fa-arrow-up me-1"></i>Good</small>
+                    <small class="text-success"><i class="fas fa-arrow-up me-1"></i>Available for sale</small>
                 </div>
             </div>
         </div>
@@ -194,7 +251,7 @@ ob_start();
                 <div>
                     <h3 class="mb-0"><?= $inventoryStats['low_stock'] ?></h3>
                     <p class="text-muted mb-0">Low Stock</p>
-                    <small class="text-warning"><i class="fas fa-exclamation me-1"></i>Alert</small>
+                    <small class="text-warning"><i class="fas fa-exclamation me-1"></i>Needs restocking</small>
                 </div>
             </div>
         </div>
@@ -209,7 +266,7 @@ ob_start();
                 <div>
                     <h3 class="mb-0"><?= $inventoryStats['out_of_stock'] ?></h3>
                     <p class="text-muted mb-0">Out of Stock</p>
-                    <small class="text-danger"><i class="fas fa-ban me-1"></i>Critical</small>
+                    <small class="text-danger"><i class="fas fa-ban me-1"></i>Unavailable</small>
                 </div>
             </div>
         </div>
@@ -227,7 +284,7 @@ ob_start();
                 <div>
                     <h3 class="mb-0"><?php echo formatCurrency($todayStats['total_sales']); ?></h3>
                     <p class="text-muted mb-0">Today's Sales</p>
-                    <small class="text-primary"><?= $todayStats['order_count'] ?> orders</small>
+                    <small class="text-primary"><?= $todayStats['order_count'] ?> transactions today</small>
                 </div>
             </div>
         </div>
@@ -242,7 +299,7 @@ ob_start();
                 <div>
                     <h3 class="mb-0"><?php echo formatCurrency($weekStats['total_sales']); ?></h3>
                     <p class="text-muted mb-0">This Week</p>
-                    <small class="text-info"><?= $weekStats['order_count'] ?> orders</small>
+                    <small class="text-info"><?= $weekStats['order_count'] ?> transactions this week</small>
                 </div>
             </div>
         </div>
@@ -284,9 +341,25 @@ ob_start();
     <!-- Sales Trend Chart -->
     <div class="col-xl-8 mb-3">
         <div class="dashboard-card">
-            <h5 class="section-title"><i class="fas fa-chart-line me-2"></i>Sales Trend (Last 7 Days)</h5>
-            <div class="chart-container">
-                <canvas id="salesTrendChart"></canvas>
+            <h5 class="section-title"><i class="fas fa-chart-line me-2"></i>Sales for the Last 7 Days</h5>
+            <div class="chart-summary-grid">
+                <div class="chart-summary-card">
+                    <div class="chart-summary-label">Peak Day</div>
+                    <div class="chart-summary-value"><?php echo !empty($salesAmounts) ? formatCurrency(max($salesAmounts)) : formatCurrency(0); ?></div>
+                </div>
+                <div class="chart-summary-card">
+                    <div class="chart-summary-label">Orders Tracked</div>
+                    <div class="chart-summary-value"><?php echo number_format(array_sum($salesOrders)); ?></div>
+                </div>
+                <div class="chart-summary-card">
+                    <div class="chart-summary-label">Daily Average</div>
+                    <div class="chart-summary-value"><?php echo formatCurrency(!empty($salesAmounts) ? array_sum($salesAmounts) / count($salesAmounts) : 0); ?></div>
+                </div>
+            </div>
+            <div class="chart-shell">
+                <div class="chart-container">
+                    <canvas id="salesTrendChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -294,9 +367,27 @@ ob_start();
     <!-- Payment Methods Chart -->
     <div class="col-xl-4 mb-3">
         <div class="dashboard-card">
-            <h5 class="section-title"><i class="fas fa-credit-card me-2"></i>Payment Methods</h5>
-            <div class="chart-container" style="height: 250px;">
-                <canvas id="paymentMethodChart"></canvas>
+            <h5 class="section-title"><i class="fas fa-credit-card me-2"></i>Payment Breakdown</h5>
+            <div class="chart-shell">
+                <div class="chart-container" style="height: 250px;">
+                    <canvas id="paymentMethodChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="dashboard-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="section-title mb-0"><i class="fas fa-layer-group me-2"></i>Category Stock Mix</h5>
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle"><?php echo count($categoryDistribution); ?> categories</span>
+            </div>
+            <div class="chart-shell">
+                <div class="chart-container" style="height: 340px;">
+                    <canvas id="categoryStockChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -309,12 +400,12 @@ ob_start();
         <div class="dashboard-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="section-title mb-0"><i class="fas fa-receipt me-2"></i>Recent Transactions</h5>
-                <a href="transactions.php" class="btn btn-outline-danger btn-sm">View All</a>
+                <a href="transactions.php" class="btn btn-outline-danger btn-sm">View Transactions</a>
             </div>
             <?php if (empty($recentOrders)): ?>
                 <div class="text-center py-4">
                     <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
-                    <p class="text-muted">No recent transactions</p>
+                    <p class="text-muted">No recent transactions to show.</p>
                 </div>
             <?php else: ?>
                 <div class="table-responsive">
@@ -354,11 +445,11 @@ ob_start();
     <!-- Top Products -->
     <div class="col-xl-5 mb-3">
         <div class="dashboard-card">
-            <h5 class="section-title"><i class="fas fa-fire me-2"></i>Top Selling Products (30 Days)</h5>
+            <h5 class="section-title"><i class="fas fa-fire me-2"></i>Top-Selling Products</h5>
             <?php if (empty($topProducts)): ?>
                 <div class="text-center py-4">
                     <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
-                    <p class="text-muted">No sales data available</p>
+                    <p class="text-muted">No sales data available yet.</p>
                 </div>
             <?php else: ?>
                 <div class="list-group list-group-flush">
@@ -372,7 +463,7 @@ ob_start();
                             </div>
                             <div>
                                 <div class="fw-bold"><?php echo htmlspecialchars($product['name']); ?></div>
-                                <small class="text-muted"><?= $product['total_sold'] ?> units sold</small>
+                                <small class="text-muted"><?= $product['total_sold'] ?> units sold in the last 30 days</small>
                             </div>
                         </div>
                         <div class="text-end">
@@ -508,6 +599,239 @@ new Chart(paymentCtx, {
         }
     }
 });
+</script>
+<script>
+const staffChartLabels = <?php echo json_encode($salesDates); ?>;
+const staffSalesSeries = <?php echo json_encode($salesAmounts); ?>;
+const staffOrderSeries = <?php echo json_encode($salesOrders); ?>;
+const staffPaymentLabels = <?php echo json_encode($paymentLabels); ?>;
+const staffPaymentSeries = <?php echo json_encode($paymentCounts); ?>;
+const staffPaymentTotals = <?php echo json_encode($paymentTotals); ?>;
+const staffCategoryLabels = <?php echo json_encode($categoryLabels); ?>;
+const staffCategorySeries = <?php echo json_encode($categoryCounts); ?>;
+const staffCurrency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
+
+function createStaffGradient(context, colorStops) {
+    const gradient = context.createLinearGradient(0, 0, 0, 320);
+    colorStops.forEach(stop => gradient.addColorStop(stop.position, stop.color));
+    return gradient;
+}
+
+const enhancedSalesCanvas = document.getElementById('salesTrendChart');
+if (enhancedSalesCanvas) {
+    Chart.getChart(enhancedSalesCanvas)?.destroy();
+    const salesGradient = createStaffGradient(enhancedSalesCanvas.getContext('2d'), [
+        { position: 0, color: 'rgba(220, 53, 69, 0.28)' },
+        { position: 1, color: 'rgba(220, 53, 69, 0.02)' }
+    ]);
+
+    new Chart(enhancedSalesCanvas, {
+        type: 'line',
+        data: {
+            labels: staffChartLabels,
+            datasets: [{
+                label: 'Sales (PHP)',
+                data: staffSalesSeries,
+                borderColor: '#dc3545',
+                backgroundColor: salesGradient,
+                borderWidth: 3,
+                pointBackgroundColor: '#fff5f5',
+                pointBorderColor: '#dc3545',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                tension: 0.38,
+                fill: true,
+                yAxisID: 'y'
+            }, {
+                label: 'Orders',
+                data: staffOrderSeries,
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.86)',
+                borderWidth: 2,
+                borderDash: [6, 6],
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                tension: 0.3,
+                fill: false,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(23, 32, 51, 0.94)',
+                    padding: 12,
+                    callbacks: {
+                        label(context) {
+                            if (context.dataset.yAxisID === 'y') {
+                                return `${context.dataset.label}: ${staffCurrency.format(context.parsed.y || 0)}`;
+                            }
+                            return `${context.dataset.label}: ${context.parsed.y || 0}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(23, 32, 51, 0.06)'
+                    },
+                    ticks: {
+                        callback(value) {
+                            return staffCurrency.format(value);
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Sales (PHP)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    },
+                    title: {
+                        display: true,
+                        text: 'Orders'
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+const enhancedPaymentCanvas = document.getElementById('paymentMethodChart');
+if (enhancedPaymentCanvas) {
+    Chart.getChart(enhancedPaymentCanvas)?.destroy();
+    new Chart(enhancedPaymentCanvas, {
+        type: 'polarArea',
+        data: {
+            labels: staffPaymentLabels,
+            datasets: [{
+                data: staffPaymentSeries,
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.78)',
+                    'rgba(23, 162, 184, 0.78)',
+                    'rgba(255, 193, 7, 0.8)',
+                    'rgba(220, 53, 69, 0.76)'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            const index = context.dataIndex;
+                            const count = staffPaymentSeries[index] || 0;
+                            const total = staffPaymentTotals[index] || 0;
+                            return `${context.label}: ${count} txns, ${staffCurrency.format(total)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                r: {
+                    grid: {
+                        color: 'rgba(23, 32, 51, 0.08)'
+                    },
+                    ticks: {
+                        backdropColor: 'transparent',
+                        precision: 0
+                    }
+                }
+            }
+        }
+    });
+}
+
+const categoryStockCtx = document.getElementById('categoryStockChart');
+if (categoryStockCtx) {
+    new Chart(categoryStockCtx, {
+        type: 'bar',
+        data: {
+            labels: staffCategoryLabels,
+            datasets: [{
+                label: 'Products',
+                data: staffCategorySeries,
+                backgroundColor: [
+                    '#dc3545',
+                    '#0d6efd',
+                    '#20c997',
+                    '#ffc107',
+                    '#6f42c1',
+                    '#fd7e14'
+                ],
+                borderRadius: 12,
+                borderSkipped: false,
+                maxBarThickness: 42
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            return `Products: ${context.parsed.x || 0}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(23, 32, 51, 0.06)'
+                    },
+                    ticks: {
+                        precision: 0
+                    }
+                },
+                y: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
 </script>
 <?php
 $content = ob_get_clean();

@@ -10,23 +10,32 @@ $error_message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $authController = new AuthController();
-    $result = $authController->login($_POST['username'], $_POST['password']);
-    
-if ($result['success']) {
-    // Redirect based on role
-    $role = isset($_SESSION['role']) ? $_SESSION['role'] : '';
-    if ($role === 'admin') {
-        redirect(BASE_URL . 'public/dashboard.php');
-    } elseif ($role === 'staff') {
-        redirect(BASE_URL . 'staff/dashboard.php');
-    } elseif ($role === 'cashier') {
-        redirect(BASE_URL . 'cashier/dashboard.php');
-    } else {
-        redirect(BASE_URL . 'public/dashboard.php'); // fallback
+    try {
+        $password = AuthSecurity::getIncomingPassword($_POST);
+    } catch (RuntimeException $e) {
+        $password = '';
+        $error_message = $e->getMessage();
     }
-} else {
-    $error_message = $result['message'];
-}
+
+    if ($error_message === '') {
+        $result = $authController->login($_POST['username'], $password);
+    
+        if ($result['success']) {
+            // Redirect based on role
+            $role = isset($_SESSION['role']) ? $_SESSION['role'] : '';
+            if ($role === 'admin') {
+                redirect(BASE_URL . 'public/dashboard.php');
+            } elseif ($role === 'staff') {
+                redirect(BASE_URL . 'staff/dashboard.php');
+            } elseif ($role === 'cashier') {
+                redirect(BASE_URL . 'cashier/dashboard.php');
+            } else {
+                redirect(BASE_URL . 'public/dashboard.php'); // fallback
+            }
+        } else {
+            $error_message = $result['message'];
+        }
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -105,7 +114,8 @@ if ($result['success']) {
                             </div>
                         <?php endif; ?>
                         
-                        <form method="POST" action="">
+                        <form method="POST" action="" id="loginForm">
+                            <input type="hidden" name="encrypted_password" id="encrypted_password">
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username</label>
                                 <div class="input-group">
@@ -151,6 +161,85 @@ if ($result['success']) {
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const LOGIN_PUBLIC_KEY = <?php echo json_encode(AuthSecurity::getPublicKey()); ?>;
+
+        function pemToArrayBuffer(pem) {
+            const base64 = pem
+                .replace(/-----BEGIN PUBLIC KEY-----/g, '')
+                .replace(/-----END PUBLIC KEY-----/g, '')
+                .replace(/\s+/g, '');
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+
+            return bytes.buffer;
+        }
+
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+
+            return btoa(binary);
+        }
+
+        async function encryptPassword(password) {
+            const publicKey = await window.crypto.subtle.importKey(
+                'spki',
+                pemToArrayBuffer(LOGIN_PUBLIC_KEY),
+                {
+                    name: 'RSA-OAEP',
+                    hash: 'SHA-256'
+                },
+                false,
+                ['encrypt']
+            );
+
+            const encryptedBuffer = await window.crypto.subtle.encrypt(
+                { name: 'RSA-OAEP' },
+                publicKey,
+                new TextEncoder().encode(password)
+            );
+
+            return arrayBufferToBase64(encryptedBuffer);
+        }
+
+        document.getElementById('loginForm')?.addEventListener('submit', async function(event) {
+            if (this.dataset.encrypted === '1') {
+                return;
+            }
+
+            if (!window.crypto?.subtle) {
+                return;
+            }
+
+            const passwordField = document.getElementById('password');
+            const encryptedPasswordField = document.getElementById('encrypted_password');
+            const passwordValue = passwordField?.value || '';
+
+            if (!passwordValue) {
+                return;
+            }
+
+            event.preventDefault();
+
+            try {
+                encryptedPasswordField.value = await encryptPassword(passwordValue);
+                passwordField.value = '';
+                this.dataset.encrypted = '1';
+                this.submit();
+            } catch (error) {
+                console.error('Login encryption failed:', error);
+            }
+        });
+    </script>
 </body>
 </html>
 

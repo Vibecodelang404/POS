@@ -110,15 +110,22 @@ class InventoryController {
     
     public function addProduct($data) {
         try {
-            $stmt = $this->db->prepare("INSERT INTO products (name, price, stock_quantity, barcode) VALUES (?, ?, ?, ?)");
+            $stmt = $this->db->prepare("
+                INSERT INTO products (name, category_id, price, stock_quantity, barcode, expiry, last_updated_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
             $stmt->execute([
                 $data['name'],
+                !empty($data['category_id']) ? (int) $data['category_id'] : null,
                 $data['price'],
                 $data['stock_quantity'],
-                $data['barcode']
+                $data['barcode'] ?: null,
+                $data['expiry'] ?: null,
+                $_SESSION['user_id'] ?? null
             ]);
             return true;
         } catch(PDOException $e) {
+            error_log("Add product error: " . $e->getMessage());
             return false;
         }
     }
@@ -138,12 +145,18 @@ class InventoryController {
             
             // Update product with user tracking
             $user_id = $_SESSION['user_id'] ?? null;
-            $stmt = $this->db->prepare("UPDATE products SET name = ?, price = ?, stock_quantity = ?, barcode = ?, last_updated_by = ? WHERE id = ?");
+            $stmt = $this->db->prepare("
+                UPDATE products
+                SET name = ?, category_id = ?, price = ?, stock_quantity = ?, barcode = ?, expiry = ?, last_updated_by = ?
+                WHERE id = ?
+            ");
             $stmt->execute([
                 $data['name'],
+                !empty($data['category_id']) ? (int) $data['category_id'] : null,
                 $data['price'],
                 $new_stock,
-                $data['barcode'],
+                $data['barcode'] ?: null,
+                $data['expiry'] ?: null,
                 $user_id,
                 $id
             ]);

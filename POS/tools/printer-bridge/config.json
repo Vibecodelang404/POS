@@ -2,9 +2,9 @@
   "host": "127.0.0.1",
   "port": 9123,
   "transport": "serial",
-  "serialPath": "COM8",
+  "serialPath": "COM10",
   "baudRate": 9600,
-  "windowsPrinterName": "POS-58",
+  "windowsPrinterName": "POS-58 (3)",
   "printTimeoutMs": 12000,
   "openCashDrawer": false
 }

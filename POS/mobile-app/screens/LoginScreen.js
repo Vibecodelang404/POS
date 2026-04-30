@@ -65,7 +65,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.logoText}>📦</Text>
           </View>
           <Text style={styles.title}>Kakai's POS</Text>
-          <Text style={styles.subtitle}>Barcode Scanner</Text>
+          <Text style={styles.subtitle}>Inventory Companion</Text>
         </View>
 
         {/* Login Form */}

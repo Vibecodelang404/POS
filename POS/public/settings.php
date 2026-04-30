@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        // User Management Actions (from user_management.php)
+        // Users actions (from user_management.php)
         if ($action === 'create_user') {
             $username = trim($_POST['username']);
             $email = trim($_POST['email']);
@@ -318,7 +318,7 @@ ob_start();
     </li>
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#user-management" type="button" role="tab">
-            <i class="fas fa-users-cog me-2"></i>User Management
+            <i class="fas fa-users-cog me-2"></i>Users
         </button>
     </li>
 </ul>
@@ -490,7 +490,7 @@ ob_start();
         </div>
     </div>
     
-    <!-- User Management Tab -->
+    <!-- Users Tab -->
     <div class="tab-pane fade" id="user-management" role="tabpanel">
         <!-- User Statistics -->
         <div class="row mb-4">
@@ -562,7 +562,7 @@ ob_start();
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-striped table-hover table-bordered align-middle mb-0">
                         <thead>
                             <tr>
                                 <th>ID</th>

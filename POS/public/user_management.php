@@ -3,7 +3,7 @@ require_once __DIR__ . '/../app/config.php';
 requireLogin();
 requireAdmin();
 
-$page_title = "User Management";
+$page_title = "Users";
 
 // Handle user actions
 $message = '';
@@ -202,9 +202,9 @@ ob_start();
 <div class="panel-hero mb-4">
     <div class="row align-items-center g-4">
         <div class="col-lg-8">
-            <div class="hero-kicker">Access Control</div>
-            <h2 class="hero-title">User Management</h2>
-            <p class="hero-subtitle">Create accounts, update permissions, and monitor active staff from one admin view.</p>
+            <div class="hero-kicker">Team Coverage</div>
+            <h2 class="hero-title">Users</h2>
+            <p class="hero-subtitle">Keep the right people active, accountable, and assigned to the work that supports daily business performance.</p>
         </div>
         <div class="col-lg-4 text-lg-end">
             <button class="btn btn-dark btn-custom" data-bs-toggle="modal" data-bs-target="#addUserModal">
@@ -216,17 +216,17 @@ ob_start();
         <div class="summary-pill">
             <div class="summary-pill-label">Total Accounts</div>
             <div class="summary-pill-value"><?php echo number_format($stats['total_users']); ?></div>
-            <div class="metric-note">Across admin, staff, and cashier roles</div>
+            <div class="metric-note">Current team capacity across admin, staff, and cashier roles</div>
         </div>
         <div class="summary-pill">
             <div class="summary-pill-label">Active Accounts</div>
             <div class="summary-pill-value"><?php echo number_format($stats['active_count']); ?></div>
-            <div class="metric-note">Currently enabled for sign-in</div>
+            <div class="metric-note">People currently available to support operations</div>
         </div>
         <div class="summary-pill">
             <div class="summary-pill-label">Filtered Results</div>
             <div class="summary-pill-value"><?php echo number_format(count($users)); ?></div>
-            <div class="metric-note">Matching the current search and filter set</div>
+            <div class="metric-note">Accounts matching the team view you are reviewing</div>
         </div>
     </div>
 </div>
@@ -239,7 +239,7 @@ ob_start();
                 <div>
                     <h6 class="text-muted mb-2">Total Users</h6>
                     <h3 class="mb-0"><?php echo number_format($stats['total_users']); ?></h3>
-                    <div class="user-stat-note mt-2">Full account list</div>
+                    <div class="user-stat-note mt-2">Overall staffing footprint in the system</div>
                 </div>
                 <div class="stats-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                     <i class="fas fa-users"></i>
@@ -254,7 +254,7 @@ ob_start();
                 <div>
                     <h6 class="text-muted mb-2">Admins</h6>
                     <h3 class="mb-0"><?php echo number_format($stats['admin_count']); ?></h3>
-                    <div class="user-stat-note mt-2">Full control users</div>
+                    <div class="user-stat-note mt-2">Decision-makers with full business visibility</div>
                 </div>
                 <div class="stats-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
                     <i class="fas fa-user-shield"></i>
@@ -269,7 +269,7 @@ ob_start();
                 <div>
                     <h6 class="text-muted mb-2">Staff</h6>
                     <h3 class="mb-0"><?php echo number_format($stats['staff_count']); ?></h3>
-                    <div class="user-stat-note mt-2">Inventory and back-office team</div>
+                    <div class="user-stat-note mt-2">Back-office support for stock and store operations</div>
                 </div>
                 <div class="stats-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
                     <i class="fas fa-user-tie"></i>
@@ -351,7 +351,7 @@ ob_start();
     </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover data-table user-table">
+            <table class="table table-striped table-hover table-bordered align-middle mb-0 data-table user-table">
                 <thead>
                     <tr>
                         <th>ID</th>

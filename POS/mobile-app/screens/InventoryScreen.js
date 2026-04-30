@@ -271,11 +271,6 @@ const InventoryScreen = ({ route, navigation }) => {
         <View style={styles.productHeader}>
           <View style={styles.productInfo}>
             <Text style={styles.productName}>{item.name}</Text>
-            {item.barcode && (
-              <Text style={styles.productBarcode}>
-                <Ionicons name="barcode-outline" size={14} /> {item.barcode}
-              </Text>
-            )}
           </View>
           <TouchableOpacity 
             style={styles.readOnlyBadge}
@@ -494,17 +489,6 @@ const InventoryScreen = ({ route, navigation }) => {
                     <Text style={styles.detailSectionValue}>
                       {currentProduct.low_stock_threshold} units
                     </Text>
-                  </View>
-                )}
-
-                {/* Barcode */}
-                {currentProduct.barcode && (
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionLabel}>Barcode</Text>
-                    <View style={styles.barcodeContainer}>
-                      <Ionicons name="barcode-outline" size={24} color="#333" />
-                      <Text style={styles.barcodeValue}>{currentProduct.barcode}</Text>
-                    </View>
                   </View>
                 )}
 

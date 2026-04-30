@@ -70,7 +70,7 @@ $content = '<div class="container py-4">
       <div class="col-lg-8">
         <div class="hero-kicker" style="color:#4b5563; font-weight:800;">Cashier Overview</div>
         <h2 class="hero-title" style="color:#111827; text-shadow:0 1px 0 rgba(255,255,255,0.18);">' . $cashierName . '\'s Transactions</h2>
-        <p class="hero-subtitle" style="color:#1f2937; font-weight:600;">This dashboard shows only your transactions for ' . date('F d, Y') . ', including sales, completed orders, and recent activity.</p>
+        <p class="hero-subtitle" style="color:#1f2937; font-weight:600;">This dashboard shows only your transactions for ' . date('F d, Y') . ', including sales, completed transactions, and recent activity.</p>
       </div>
       <div class="col-lg-4 text-lg-end">
         <span class="hero-chip" style="background:rgba(255,255,255,0.5); border-color:rgba(17,24,39,0.12); color:#111827; font-weight:800;"><i class="fas fa-receipt"></i> Personal Transaction Summary</span>
@@ -139,10 +139,10 @@ $content = '<div class="container py-4">
         <div class="card-body p-4">
           ' . (count($recentTransactions) ? '
           <div class="table-responsive">
-            <table class="table align-middle mb-0">
+            <table class="table table-striped table-hover table-bordered align-middle mb-0">
               <thead class="table-light">
                 <tr>
-                  <th>Order #</th>
+                  <th>Transaction #</th>
                   <th>Amount</th>
                   <th>Payment</th>
                   <th>Status</th>

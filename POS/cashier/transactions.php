@@ -135,7 +135,7 @@ ob_start();
                 <form method="GET" class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label">Search</label>
-                        <input type="text" class="form-control" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Order number, cashier name...">
+                        <input type="text" class="form-control" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Transaction number, cashier name...">
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">From Date</label>
@@ -193,10 +193,10 @@ ob_start();
                 </div>
                 
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-striped table-hover table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Order #</th>
+                                <th>Transaction #</th>
                                 <th>Date & Time</th>
                                 <th>Total Amount</th>
                                 <th>Status</th>
@@ -307,7 +307,7 @@ function viewTransactionDetails(transactionId) {
                 html += '<div class="col-md-6">';
                 html += '<h6 class="fw-bold">Transaction Information</h6>';
                 html += '<table class="table table-borderless table-sm">';
-                html += '<tr><td><strong>Order Number:</strong></td><td>' + (t.order_number || 'ORD-' + t.id) + '</td></tr>';
+                html += '<tr><td><strong>Transaction Number:</strong></td><td>' + (t.order_number || 'ORD-' + t.id) + '</td></tr>';
                 html += '<tr><td><strong>Date & Time:</strong></td><td>' + new Date(t.created_at).toLocaleString() + '</td></tr>';
                 html += '<tr><td><strong>Cashier:</strong></td><td>' + ((t.first_name || '') + ' ' + (t.last_name || '') || t.username || 'Unknown') + '</td></tr>';
                 const statusBadge = t.status === 'completed' ? 'success' : (t.status === 'pending' ? 'warning' : 'danger');
@@ -324,7 +324,7 @@ function viewTransactionDetails(transactionId) {
                 
                 html += '<hr>';
                 html += '<h6 class="fw-bold mb-3">Items</h6>';
-                html += '<table class="table table-sm table-hover">';
+                html += '<table class="table table-striped table-hover table-bordered align-middle mb-0">';
                 html += '<thead><tr><th>Product</th><th class="text-center">Quantity</th><th class="text-right">Price</th><th class="text-right">Total</th></tr></thead>';
                 html += '<tbody>';
                 
@@ -394,7 +394,7 @@ function printTransactionModal() {
     printContent += '<p style="margin: 5px 0;">Official Transaction Receipt</p>';
     printContent += '<hr style="border: 1px solid #000; margin: 15px 0;">';
     
-    printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Order:</strong> ' + (t.order_number || 'ORD-' + t.id) + '</p>';
+    printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Transaction:</strong> ' + (t.order_number || 'ORD-' + t.id) + '</p>';
     printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Date:</strong> ' + new Date(t.created_at).toLocaleString() + '</p>';
     printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Cashier:</strong> ' + ((t.first_name || '') + ' ' + (t.last_name || '') || t.username || 'Unknown') + '</p>';
     
@@ -477,7 +477,7 @@ function printTransactionModal() {
                         <h6>Transaction Information</h6>
                         <table class="table table-borderless table-sm">
                             <tr>
-                                <td><strong>Order Number:</strong></td>
+                                <td><strong>Transaction Number:</strong></td>
                                 <td><?php echo htmlspecialchars($selectedTransaction['order_number'] ?? 'ORD-' . $selectedTransaction['id']); ?></td>
                             </tr>
                             <tr>
@@ -502,7 +502,7 @@ function printTransactionModal() {
                 
                 <h6>Items Purchased</h6>
                 <div class="table-responsive">
-                    <table class="table table-bordered">
+                    <table class="table table-striped table-hover table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
                                 <th>Product</th>

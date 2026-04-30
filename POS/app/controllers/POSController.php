@@ -5,26 +5,66 @@ class POSController {
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
     }
+
+    private function deductProductBatches($productId, $quantity) {
+        $remaining = (int) $quantity;
+        if ($remaining <= 0) {
+            return;
+        }
+
+        $batchStmt = $this->db->prepare("
+            SELECT id, quantity
+            FROM product_batches
+            WHERE product_id = ? AND quantity > 0
+            ORDER BY
+                CASE WHEN expiry_date IS NULL THEN 1 ELSE 0 END,
+                expiry_date ASC,
+                id ASC
+            FOR UPDATE
+        ");
+        $batchStmt->execute([(int) $productId]);
+
+        $updateBatchStmt = $this->db->prepare("UPDATE product_batches SET quantity = ?, updated_at = NOW() WHERE id = ?");
+        foreach ($batchStmt->fetchAll(PDO::FETCH_ASSOC) as $batch) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $deduct = min((int) $batch['quantity'], $remaining);
+            $updateBatchStmt->execute([(int) $batch['quantity'] - $deduct, (int) $batch['id']]);
+            $remaining -= $deduct;
+        }
+    }
     
-    public function getProducts($search = '', $category = '') {
+    public function getProducts($search = '', $category = '', $productType = '') {
         try {
-            $sql = "SELECT * FROM products WHERE status = 'active' AND stock_quantity > 0";
+            $sql = "
+                SELECT p.*, c.name AS category_name
+                FROM products p
+                LEFT JOIN categories c ON c.id = p.category_id
+                WHERE p.status = 'active' AND p.stock_quantity > 0
+            ";
             $params = [];
             
             if (!empty($search)) {
-                $sql .= " AND (name LIKE ? OR barcode LIKE ? OR sku LIKE ? OR id = ?)";
+                $sql .= " AND (p.name LIKE ? OR p.barcode LIKE ? OR p.sku LIKE ? OR p.id = ?)";
                 $params[] = "%{$search}%";
                 $params[] = "%{$search}%";
                 $params[] = "%{$search}%";
                 $params[] = is_numeric($search) ? intval($search) : 0;
             }
             
-            if (!empty($category)) {
-                $sql .= " AND category LIKE ?";
-                $params[] = "%{$category}%";
+            if (!empty($category) && ctype_digit((string) $category)) {
+                $sql .= " AND p.category_id = ?";
+                $params[] = (int) $category;
+            }
+
+            if (in_array($productType, ['retail', 'wholesale'], true)) {
+                $sql .= " AND p.product_type = ?";
+                $params[] = $productType;
             }
             
-            $sql .= " ORDER BY name ASC";
+            $sql .= " ORDER BY p.name ASC";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
@@ -35,13 +75,18 @@ class POSController {
     }
     
     public function getCategories() {
-        return [
-            'Electronics',
-            'Clothing', 
-            'Food & Beverages',
-            'Automotive',
-            'Home & Garden'
-        ];
+        try {
+            $stmt = $this->db->query("
+                SELECT DISTINCT c.id, c.name
+                FROM categories c
+                INNER JOIN products p ON p.category_id = c.id
+                WHERE p.status = 'active' AND p.stock_quantity > 0
+                ORDER BY c.name ASC
+            ");
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            return [];
+        }
     }
     
     public function createOrder($items, $payment_method = 'cash', $amount_received = 0, $discount_amount = 0) {
@@ -95,13 +140,18 @@ class POSController {
             $order_id = $this->db->lastInsertId();
             
             // Add order items and update stock
+            $costStmt = $this->db->prepare("SELECT cost_price FROM products WHERE id = ?");
             foreach ($items as $item) {
+                $costStmt->execute([(int) $item['id']]);
+                $costPriceAtSale = (float) ($costStmt->fetchColumn() ?: 0);
+
                 // Insert order item
-                $stmt = $this->db->prepare("INSERT INTO order_items (order_id, product_id, quantity, unit_price, total_price) VALUES (?, ?, ?, ?, ?)");
+                $stmt = $this->db->prepare("INSERT INTO order_items (order_id, product_id, quantity, unit_price, cost_price_at_sale, total_price) VALUES (?, ?, ?, ?, ?, ?)");
                 $item_total = $item['price'] * $item['quantity'];
-                $stmt->execute([$order_id, $item['id'], $item['quantity'], $item['price'], $item_total]);
+                $stmt->execute([$order_id, $item['id'], $item['quantity'], $item['price'], $costPriceAtSale, $item_total]);
                 
                 // Update product stock
+                $this->deductProductBatches($item['id'], $item['quantity']);
                 $stmt = $this->db->prepare("UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?");
                 $stmt->execute([$item['quantity'], $item['id']]);
             }
@@ -127,7 +177,12 @@ class POSController {
     
     public function getProductById($id) {
         try {
-            $stmt = $this->db->prepare("SELECT * FROM products WHERE id = ? AND status = 'active'");
+            $stmt = $this->db->prepare("
+                SELECT p.*, c.name AS category_name
+                FROM products p
+                LEFT JOIN categories c ON c.id = p.category_id
+                WHERE p.id = ? AND p.status = 'active'
+            ");
             $stmt->execute([$id]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch(PDOException $e) {

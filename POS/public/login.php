@@ -144,16 +144,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 Need an account? Contact your administrator.
                             </small>
                         </div>
-
-                        <!-- Demo credentials -->
-                        <div class="mt-4 p-3 bg-light rounded">
-                            <small class="text-muted">
-                                <strong>Demo Credentials:</strong><br>
-                                <span class="d-block mb-1">Admin: <b>admin</b> / <b>admin123</b></span>
-                                <span class="d-block mb-1">Staff: <b>staff</b> / <b>staff123</b></span>
-                                <span class="d-block mb-1">Cashier: <b>cashier</b> / <b>cashier123</b></span>
-                            </small>
-                        </div>
                     </div>
                 </div>
             </div>

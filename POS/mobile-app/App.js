@@ -8,7 +8,6 @@ import { Ionicons } from '@expo/vector-icons';
 import LoginScreen from './screens/LoginScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import InventoryScreen from './screens/InventoryScreen';
-import ScannerScreen from './screens/ScannerScreen';
 import AuthService from './services/authService';
 
 const Tab = createBottomTabNavigator();
@@ -81,16 +80,6 @@ function TabNavigator() {
           title: 'Inventory',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cube-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Scanner"
-        component={ScannerScreen}
-        options={{
-          title: 'Scanner',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="barcode-outline" size={size} color={color} />
           ),
         }}
       />

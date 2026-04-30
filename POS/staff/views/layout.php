@@ -113,6 +113,42 @@
             top: 0;
             z-index: 100;
         }
+        .page-context {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+        .page-overline {
+            color: var(--accent-deep);
+            font-size: 0.74rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .page-subtitle {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+        .topbar-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .topbar-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.68rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+            color: #344054;
+            font-size: 0.88rem;
+            font-weight: 700;
+        }
         .pos-container {
             padding: 1.5rem;
             min-height: calc(100vh - 70px);
@@ -156,6 +192,82 @@
             border-radius: 999px;
             padding: 0.5em 0.8em;
             font-weight: 700;
+        }
+        .table-responsive {
+            border-radius: 18px;
+        }
+        .staff-table-card {
+            border: 1px solid rgba(15, 23, 42, 0.07);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 12px 30px rgba(17, 24, 39, 0.07);
+            overflow: hidden;
+        }
+        .staff-table-card .table,
+        .work-panel .table,
+        .inventory-table-card .table {
+            margin-bottom: 0;
+        }
+        .staff-table-card thead th,
+        .work-panel thead th,
+        .inventory-table-card thead th,
+        .report-table thead th {
+            background: rgba(248, 250, 252, 0.92);
+            color: #667085;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+            font-size: 0.74rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .staff-table-card tbody td,
+        .work-panel tbody td,
+        .inventory-table-card tbody td,
+        .report-table tbody td {
+            border-color: rgba(15, 23, 42, 0.06);
+            color: #344054;
+            vertical-align: middle;
+        }
+        .staff-table-card .table-hover tbody tr,
+        .work-panel .table-hover tbody tr,
+        .inventory-table-card .table-hover tbody tr,
+        .report-table.table-hover tbody tr {
+            transition: background-color 0.16s ease, box-shadow 0.16s ease;
+        }
+        .staff-table-card .table-hover tbody tr:hover,
+        .work-panel .table-hover tbody tr:hover,
+        .inventory-table-card .table-hover tbody tr:hover,
+        .report-table.table-hover tbody tr:hover {
+            --bs-table-hover-bg: rgba(var(--accent-rgb), 0.07);
+        }
+        .staff-table-title {
+            font-family: 'Manrope', sans-serif;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+        .staff-empty-state {
+            padding: 3rem 1rem;
+            color: var(--muted);
+            text-align: center;
+        }
+        .staff-empty-state i {
+            color: rgba(var(--accent-rgb), 0.42);
+        }
+        .stock-chip {
+            min-width: 72px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.42rem 0.72rem;
+            font-weight: 800;
+        }
+        .table-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            white-space: nowrap;
         }
         .section-heading {
             font-family: 'Manrope', sans-serif;
@@ -318,6 +430,17 @@ if ((!isset($_SESSION['first_name']) || !isset($_SESSION['last_name'])) && isset
 $firstName = $_SESSION['first_name'] ?? $_SESSION['username'] ?? 'User';
 $lastName = $_SESSION['last_name'] ?? '';
 $displayName = htmlspecialchars(trim($firstName . ' ' . $lastName));
+$pageName = $title ?? 'Inventory';
+$pageDescriptions = [
+    'Staff Dashboard' => 'Monitor inventory health, urgent stock priorities, and your recent stock updates.',
+    'Dashboard' => 'Monitor inventory health, urgent stock priorities, and your recent stock updates.',
+    'Inventory' => 'Review stock health, product availability, and replenishment priorities in one place.',
+    'Stock Monitoring' => 'Scan product stock levels and identify inventory issues that need follow-up.',
+    'Low Stock Alerts' => 'Prioritize products that need restocking before availability is affected.',
+    'Inventory Reports' => 'Review your stock movement records and inventory updates.',
+    'Account Settings' => 'Maintain your staff account details and access credentials.'
+];
+$pageSubtitle = $pageDescriptions[$pageName] ?? 'Use this workspace to keep inventory records current and reliable.';
 ?>
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -346,7 +469,7 @@ $displayName = htmlspecialchars(trim($firstName . ' ' . $lastName));
                         <span class="nav-label">Stock Monitoring</span>
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item d-none">
                     <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'barcode_scanner.php' ? 'active' : ''; ?>" href="barcode_scanner.php">
                         <i class="fas fa-barcode"></i>
                         <span class="nav-label">Barcode Scanner</span>
@@ -396,14 +519,18 @@ $displayName = htmlspecialchars(trim($firstName . ' ' . $lastName));
                 <button class="btn btn-light me-3" id="sidebar-toggle" type="button" aria-label="Toggle sidebar">
                     <i class="fas fa-bars"></i>
                 </button>
-                <div>
-                    <h5 class="mb-0 section-heading"><?php echo $title; ?></h5>
+                <div class="page-context">
+                    <span class="page-overline">Staff Workspace</span>
+                    <h5 class="mb-0 section-heading"><?php echo htmlspecialchars($pageName); ?></h5>
+                    <div class="page-subtitle"><?php echo htmlspecialchars($pageSubtitle); ?></div>
                 </div>
             </div>
-            <div></div>
+            <div class="topbar-meta">
+                <span class="topbar-badge"><i class="fas fa-calendar-alt"></i><?php echo date('M d, Y'); ?></span>
+            </div>
         </nav>
 
-        <div class="<?php echo basename($_SERVER['PHP_SELF']) == 'pos.php' ? 'container-fluid pos-container' : 'container-fluid py-4'; ?>">
+        <div class="container-fluid py-4">
             <?php echo $content; ?>
         </div>
     </div>

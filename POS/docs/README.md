@@ -31,7 +31,7 @@ A modern Point of Sale (POS) system built with PHP, MySQL, and Bootstrap. This s
 
 2. **Database Setup**:
    - Open phpMyAdmin or your MySQL client
-   - Create a new database named `pointshift_pos`
+   - Create a new database named `kakai_pos`
    - Import the `database.sql` file to create tables and sample data
 
 3. **Configuration**:
@@ -39,7 +39,7 @@ A modern Point of Sale (POS) system built with PHP, MySQL, and Bootstrap. This s
    - Update database credentials if needed:
      ```php
      define('DB_HOST', 'localhost');
-     define('DB_NAME', 'pointshift_pos');
+     define('DB_NAME', 'kakai_pos');
      define('DB_USER', 'root');
      define('DB_PASS', '');
      ```

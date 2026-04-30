@@ -51,6 +51,15 @@ $weekQuery = $db->query("
 ");
 $weekStats = $weekQuery->fetch(PDO::FETCH_ASSOC);
 
+$previousWeekQuery = $db->query("
+    SELECT 
+        COUNT(*) as order_count,
+        COALESCE(SUM(total_amount), 0) as total_sales
+    FROM orders
+    WHERE YEARWEEK(created_at, 1) = YEARWEEK(DATE_SUB(CURDATE(), INTERVAL 1 WEEK), 1) AND status = 'completed'
+");
+$previousWeekStats = $previousWeekQuery->fetch(PDO::FETCH_ASSOC);
+
 // Get this month's sales
 $monthQuery = $db->query("
     SELECT 
@@ -61,6 +70,17 @@ $monthQuery = $db->query("
 ");
 $monthStats = $monthQuery->fetch(PDO::FETCH_ASSOC);
 
+$previousMonthQuery = $db->query("
+    SELECT 
+        COUNT(*) as order_count,
+        COALESCE(SUM(total_amount), 0) as total_sales
+    FROM orders
+    WHERE created_at >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
+      AND created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01')
+      AND status = 'completed'
+");
+$previousMonthStats = $previousMonthQuery->fetch(PDO::FETCH_ASSOC);
+
 // Get sales by payment method for chart
 $paymentMethodQuery = $db->query("
     SELECT 
@@ -70,6 +90,7 @@ $paymentMethodQuery = $db->query("
     FROM orders 
     WHERE DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND status = 'completed'
     GROUP BY payment_method
+    ORDER BY total DESC
 ");
 $paymentMethods = $paymentMethodQuery->fetchAll(PDO::FETCH_ASSOC);
 
@@ -115,6 +136,24 @@ $categoryQuery = $db->query("
 ");
 $categoryData = $categoryQuery->fetchAll(PDO::FETCH_ASSOC);
 
+$restockRiskQuery = $db->query("
+    SELECT
+        p.id,
+        p.name,
+        p.stock_quantity,
+        p.low_stock_threshold,
+        COALESCE(SUM(CASE WHEN o.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND o.status = 'completed' THEN oi.quantity ELSE 0 END), 0) as units_sold_30d,
+        COALESCE(SUM(CASE WHEN o.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND o.status = 'completed' THEN oi.total_price ELSE 0 END), 0) as revenue_30d
+    FROM products p
+    LEFT JOIN order_items oi ON oi.product_id = p.id
+    LEFT JOIN orders o ON o.id = oi.order_id
+    WHERE p.status = 'active' AND p.stock_quantity <= p.low_stock_threshold
+    GROUP BY p.id, p.name, p.stock_quantity, p.low_stock_threshold
+    ORDER BY revenue_30d DESC, units_sold_30d DESC, p.stock_quantity ASC
+    LIMIT 5
+");
+$restockRisks = $restockRiskQuery->fetchAll(PDO::FETCH_ASSOC);
+
 // Prepare data for charts
 $salesDates = array_map(function($item) { return date('M d', strtotime($item['date'])); }, $dailySales);
 $salesAmounts = array_map(function($item) { return $item['sales']; }, $dailySales);
@@ -124,6 +163,26 @@ $paymentCounts = array_map(function($pm) { return (int) $pm['count']; }, $paymen
 $paymentTotals = array_map(function($pm) { return (float) $pm['total']; }, $paymentMethods);
 $categoryLabels = array_map(function($item) { return $item['category']; }, $categoryData);
 $categoryCounts = array_map(function($item) { return (int) $item['product_count']; }, $categoryData);
+
+$safeDivide = function ($numerator, $denominator) {
+    return $denominator > 0 ? $numerator / $denominator : 0;
+};
+
+$percentChange = function ($current, $previous) use ($safeDivide) {
+    if ((float) $previous === 0.0) {
+        return (float) $current > 0 ? 100 : 0;
+    }
+    return (($current - $previous) / $previous) * 100;
+};
+
+$formatPercent = function ($value) {
+    $prefix = $value > 0 ? '+' : '';
+    return $prefix . number_format($value, 1) . '%';
+};
+
+$weekGrowth = $percentChange((float) $weekStats['total_sales'], (float) $previousWeekStats['total_sales']);
+$monthGrowth = $percentChange((float) $monthStats['total_sales'], (float) $previousMonthStats['total_sales']);
+$todayAverageTicket = $safeDivide((float) $todayStats['total_sales'], (int) $todayStats['order_count']);
 
 // Start content
 ob_start();
@@ -277,22 +336,22 @@ ob_start();
     <div class="row align-items-center g-4">
         <div class="col-lg-8">
             <h2 class="hero-title">Admin Dashboard</h2>
-            <p class="hero-subtitle">Review sales, inventory status, payment activity, and recent transactions in one place.</p>
+            <p class="hero-subtitle">Monitor sales and stock signals that support better business decisions.</p>
         </div>
     </div>
 </div>
 <div class="admin-dashboard-card mb-4">
     <div class="mb-3">
-        <h5 class="admin-section-title mb-2 border-0 pb-0">Quick Actions</h5>
-        <p class="text-muted mb-0">Jump directly into the admin work that usually needs follow-up.</p>
+        <h5 class="admin-section-title mb-2 border-0 pb-0">Action Center</h5>
+        <p class="text-muted mb-0">Go straight to the areas that usually need immediate action.</p>
     </div>
     <div class="dashboard-action-grid">
         <a href="inventory.php?stock_filter=low_stock" class="action-link-card">
             <div class="d-flex align-items-center gap-3">
                 <span class="action-link-icon"><i class="fas fa-box-open"></i></span>
                 <div>
-                    <div class="fw-bold">Review Low Stock</div>
-                    <div class="metric-note">Open filtered inventory and prepare replenishment</div>
+                    <div class="fw-bold">Review Replenishment</div>
+                    <div class="metric-note">Review low-stock items before sales are affected</div>
                 </div>
             </div>
             <i class="fas fa-arrow-right text-muted"></i>
@@ -301,8 +360,8 @@ ob_start();
             <div class="d-flex align-items-center gap-3">
                 <span class="action-link-icon"><i class="fas fa-receipt"></i></span>
                 <div>
-                    <div class="fw-bold">View Transactions</div>
-                    <div class="metric-note">Validate the latest sales and cashier activity</div>
+                    <div class="fw-bold">Review Sales Activity</div>
+                    <div class="metric-note">Review recent transactions and checkout activity</div>
                 </div>
             </div>
             <i class="fas fa-arrow-right text-muted"></i>
@@ -311,8 +370,8 @@ ob_start();
             <div class="d-flex align-items-center gap-3">
                 <span class="action-link-icon"><i class="fas fa-users-cog"></i></span>
                 <div>
-                    <div class="fw-bold">Manage Accounts</div>
-                    <div class="metric-note">Update role access and user status quickly</div>
+                    <div class="fw-bold">Review Team Coverage</div>
+                    <div class="metric-note">Adjust access and support around store demand</div>
                 </div>
             </div>
             <i class="fas fa-arrow-right text-muted"></i>
@@ -331,8 +390,8 @@ ob_start();
                 <div class="metric-stack">
                     <span class="metric-kicker">Today</span>
                     <h3 class="mb-0 text-dark"><?php echo formatCurrency($todayStats['total_sales']); ?></h3>
-                    <p class="text-muted mb-0">Today's Sales</p>
-                    <small class="text-primary"><?= $todayStats['order_count'] ?> transactions today</small>
+                    <p class="text-muted mb-0">Revenue Today</p>
+                    <small class="text-primary"><?= $todayStats['order_count'] ?> transactions | Avg ticket <?php echo formatCurrency($todayAverageTicket); ?></small>
                 </div>
             </div>
         </div>
@@ -347,8 +406,8 @@ ob_start();
                 <div class="metric-stack">
                     <span class="metric-kicker">7 Days</span>
                     <h3 class="mb-0 text-dark"><?php echo formatCurrency($weekStats['total_sales']); ?></h3>
-                    <p class="text-muted mb-0">This Week</p>
-                    <small class="text-info"><?= $weekStats['order_count'] ?> transactions this week</small>
+                    <p class="text-muted mb-0">Revenue This Week</p>
+                    <small class="<?php echo $weekGrowth >= 0 ? 'text-success' : 'text-danger'; ?>"><?= $weekStats['order_count'] ?> transactions | <?php echo $formatPercent($weekGrowth); ?> vs previous week</small>
                 </div>
             </div>
         </div>
@@ -363,8 +422,8 @@ ob_start();
                 <div class="metric-stack">
                     <span class="metric-kicker">Month To Date</span>
                     <h3 class="mb-0 text-dark"><?php echo formatCurrency($monthStats['total_sales']); ?></h3>
-                    <p class="text-muted mb-0">This Month</p>
-                    <small class="text-info"><?= $monthStats['order_count'] ?> transactions this month</small>
+                    <p class="text-muted mb-0">Revenue This Month</p>
+                    <small class="<?php echo $monthGrowth >= 0 ? 'text-success' : 'text-danger'; ?>"><?= $monthStats['order_count'] ?> transactions | <?php echo $formatPercent($monthGrowth); ?> vs last month</small>
                 </div>
             </div>
         </div>
@@ -379,15 +438,15 @@ ob_start();
                 <div class="metric-stack">
                     <span class="metric-kicker">Lifetime</span>
                     <h3 class="mb-0 text-dark"><?php echo formatCurrency($stats['total_sales']); ?></h3>
-                    <p class="text-muted mb-0">Total Revenue</p>
-                    <small class="text-success">All time</small>
+                    <p class="text-muted mb-0">Overall Revenue</p>
+                    <small class="text-success">Historical context for trend decisions</small>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Inventory & Orders Stats -->
+<!-- Inventory & Transaction Stats -->
 <div class="row mb-4">
     <div class="col-xl-6 col-md-12 mb-3">
         <div class="admin-dashboard-card" style="border-left: 4px solid #0d6efd;">
@@ -398,25 +457,25 @@ ob_start();
                 <div class="metric-stack">
                     <span class="metric-kicker">Inventory Snapshot</span>
                     <h3 class="mb-0 text-dark"><?= $inventoryStats['total_products'] ?></h3>
-                    <p class="text-muted mb-0">Total Products</p>
-                    <small class="text-primary">Current stock status in one summary</small>
+                    <p class="text-muted mb-0">Products Monitored</p>
+                    <small class="text-primary">Use this to spot assortment and availability pressure</small>
                 </div>
             </div>
             <div class="inventory-health-grid">
                 <div class="inventory-health-item">
                     <strong class="text-success"><?= $inventoryStats['in_stock'] ?></strong>
                     <div class="inventory-health-label">In Stock</div>
-                    <div class="inventory-health-note">Above low-stock threshold</div>
+                    <div class="inventory-health-note">Stable availability for near-term demand</div>
                 </div>
                 <div class="inventory-health-item">
                     <strong class="text-warning"><?= $inventoryStats['low_stock'] ?></strong>
                     <div class="inventory-health-label">Low Stock</div>
-                    <div class="inventory-health-note">Needs replenishment soon</div>
+                    <div class="inventory-health-note">Replenish soon to avoid missed sales</div>
                 </div>
                 <div class="inventory-health-item">
                     <strong class="text-brand"><?= $inventoryStats['out_of_stock'] ?></strong>
                     <div class="inventory-health-label">Out of Stock</div>
-                    <div class="inventory-health-note">Unavailable for sale</div>
+                    <div class="inventory-health-note">Immediate revenue risk from unavailable items</div>
                 </div>
             </div>
         </div>
@@ -441,7 +500,7 @@ ob_start();
                     <i class="fas fa-triangle-exclamation"></i>
                 </div>
                 <h3 class="mb-0"><?= $inventoryStats['low_stock'] + $inventoryStats['out_of_stock'] ?></h3>
-                <small class="text-muted">Items Needing Attention</small>
+                <small class="text-muted">Items for Review</small>
             </div>
         </div>
     </div>
@@ -450,17 +509,17 @@ ob_start();
 
 <!-- Charts Row -->
 <div class="row mb-4">
-    <!-- Sales Trend Chart -->
+    <!-- Sales Analysis Chart -->
     <div class="col-xl-8 mb-3">
         <div class="admin-dashboard-card">
-            <h5 class="admin-section-title"><i class="fas fa-chart-line me-2"></i>Sales for the Last 7 Days</h5>
+            <h5 class="admin-section-title"><i class="fas fa-chart-line me-2"></i>7-Day Sales Trend</h5>
             <div class="chart-kpis">
                 <div class="chart-kpi">
                     <div class="chart-kpi-label">Peak Day</div>
                     <div class="chart-kpi-value"><?php echo !empty($dailySales) ? formatCurrency(max($salesAmounts)) : formatCurrency(0); ?></div>
                 </div>
                 <div class="chart-kpi">
-                    <div class="chart-kpi-label">Orders Tracked</div>
+                    <div class="chart-kpi-label">Transactions Tracked</div>
                     <div class="chart-kpi-value"><?php echo number_format(array_sum($salesOrders)); ?></div>
                 </div>
                 <div class="chart-kpi">
@@ -469,7 +528,7 @@ ob_start();
                 </div>
             </div>
             <div class="chart-shell">
-                <canvas id="adminSalesTrendChart" class="admin-chart-canvas"></canvas>
+                <canvas id="adminSalesAnalysisChart" class="admin-chart-canvas"></canvas>
             </div>
         </div>
     </div>
@@ -477,7 +536,7 @@ ob_start();
     <!-- Payment Methods Chart -->
     <div class="col-xl-4 mb-3">
         <div class="admin-dashboard-card">
-            <h5 class="admin-section-title"><i class="fas fa-credit-card me-2"></i>Payment Breakdown</h5>
+            <h5 class="admin-section-title"><i class="fas fa-credit-card me-2"></i>Payment Mix</h5>
             <div class="chart-shell">
                 <canvas id="adminPaymentMethodChart" class="admin-chart-canvas"></canvas>
             </div>
@@ -489,14 +548,14 @@ ob_start();
     <div class="col-12">
         <div class="admin-dashboard-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="admin-section-title mb-0"><i class="fas fa-layer-group me-2"></i>Category Coverage</h5>
-                <span class="badge badge-brand"><?php echo count($categoryData); ?> categories tracked</span>
+                <h5 class="admin-section-title mb-0"><i class="fas fa-layer-group me-2"></i>Category Mix</h5>
+                <span class="badge badge-brand"><?php echo count($categoryData); ?> categories monitored</span>
             </div>
             <div class="chart-shell">
                 <?php if (empty($categoryData)): ?>
                     <div class="text-center py-5">
                         <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
-                        <p class="text-muted mb-0">No category data available yet.</p>
+                        <p class="text-muted mb-0">No category insights available yet.</p>
                     </div>
                 <?php else: ?>
                     <canvas id="adminCategoryChart" class="admin-chart-canvas-tall"></canvas>
@@ -513,19 +572,19 @@ ob_start();
         <div class="admin-dashboard-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="admin-section-title mb-0"><i class="fas fa-history me-2"></i>Recent Transactions</h5>
-                <a href="transactions.php" class="btn btn-outline-danger btn-sm">View Transactions</a>
+                <a href="transactions.php" class="btn btn-outline-danger btn-sm">Open Transactions</a>
             </div>
             <?php if (empty($recentOrders)): ?>
                 <div class="text-center py-4">
                     <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                    <p class="text-muted">No recent transactions to show.</p>
+                    <p class="text-muted">No recent transactions available.</p>
                 </div>
             <?php else: ?>
                 <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                    <table class="table table-hover table-sm">
+                    <table class="table table-striped table-hover table-bordered align-middle mb-0">
                         <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
                             <tr>
-                                <th>Order #</th>
+                                <th>Transaction #</th>
                                 <th>Staff</th>
                                 <th>Amount</th>
                                 <th>Time</th>
@@ -551,29 +610,31 @@ ob_start();
     <div class="col-xl-4 mb-3">
         <div class="admin-dashboard-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="admin-section-title mb-0"><i class="fas fa-exclamation-circle me-2"></i>Low Stock Items</h5>
+                <h5 class="admin-section-title mb-0"><i class="fas fa-exclamation-circle me-2"></i>Low Stock Priorities</h5>
                 <span class="badge badge-brand"><?php echo count($lowStockProducts); ?> Items</span>
             </div>
             <?php if (empty($lowStockProducts)): ?>
                 <div class="text-center py-4">
                     <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                    <p class="text-muted">All tracked items are sufficiently stocked.</p>
+                    <p class="text-muted">All monitored items are sufficiently stocked.</p>
                 </div>
             <?php else: ?>
                 <div style="max-height: 350px; overflow-y: auto;">
-                    <?php foreach (array_slice($lowStockProducts, 0, 8) as $product): ?>
-                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 compact-list-item">
-                        <div>
-                            <div class="fw-bold text-dark" style="font-size: 0.9rem;"><?php echo htmlspecialchars($product['name']); ?></div>
-                            <small class="text-muted">Current stock: <?php echo $product['stock_quantity']; ?></small>
+                    <?php foreach (array_slice($restockRisks, 0, 5) as $product): ?>
+                    <div class="mb-2 p-2 compact-list-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold text-dark" style="font-size: 0.9rem;"><?php echo htmlspecialchars($product['name']); ?></div>
+                                <small class="text-muted">Stock: <?php echo (int) $product['stock_quantity']; ?></small>
+                            </div>
+                            <span class="badge badge-brand">Only <?php echo (int) $product['stock_quantity']; ?> left</span>
                         </div>
-                        <span class="badge badge-brand"><?php echo $product['stock_quantity']; ?> remaining</span>
                     </div>
                     <?php endforeach; ?>
                 </div>
                 <div class="text-center mt-3">
-                    <a href="inventory.php" class="btn btn-sm btn-outline-danger">
-                        <i class="fas fa-boxes me-1"></i>Open Inventory
+                    <a href="inventory.php?stock_filter=low_stock" class="btn btn-sm btn-outline-danger">
+                        <i class="fas fa-boxes me-1"></i>Review Inventory
                     </a>
                 </div>
             <?php endif; ?>
@@ -583,25 +644,27 @@ ob_start();
     <!-- Top Products -->
     <div class="col-xl-3 mb-3">
         <div class="admin-dashboard-card">
-            <h5 class="admin-section-title"><i class="fas fa-fire me-2"></i>Top Products</h5>
+            <h5 class="admin-section-title"><i class="fas fa-fire me-2"></i>Top-Selling Products</h5>
             <?php if (empty($topProducts)): ?>
                 <div class="text-center py-4">
                     <i class="fas fa-box-open fa-2x text-muted mb-2"></i>
-                    <p class="text-muted mb-0">No sales data available yet.</p>
+                    <p class="text-muted mb-0">No product sales insights available yet.</p>
                 </div>
             <?php else: ?>
                 <div style="max-height: 400px; overflow-y: auto;">
                     <?php foreach (array_slice($topProducts, 0, 3) as $index => $product): ?>
                     <div class="mb-3 p-3 compact-list-item">
-                        <div class="d-flex align-items-center mb-2">
-                            <div class="bg-brand rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 35px; height: 35px; font-size: 1rem; font-weight: bold;">
-                                <?= $index + 1 ?>
+                        <div>
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="bg-brand rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 35px; height: 35px; font-size: 1rem; font-weight: bold;">
+                                    <?= $index + 1 ?>
+                                </div>
+                                <div class="fw-bold"><?php echo htmlspecialchars($product['name']); ?></div>
                             </div>
-                            <div class="fw-bold"><?php echo htmlspecialchars($product['name']); ?></div>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <small class="text-muted"><i class="fas fa-box me-1"></i><?= $product['total_sold'] ?> sold</small>
-                            <div class="fw-bold text-success"><?php echo formatCurrency($product['revenue']); ?></div>
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted"><i class="fas fa-box me-1"></i><?= $product['total_sold'] ?> sold</small>
+                                <div class="fw-bold text-success"><?php echo formatCurrency($product['revenue']); ?></div>
+                            </div>
                         </div>
                     </div>
                     <?php endforeach; ?>
@@ -629,8 +692,8 @@ function createAdminGradient(context, colorStops) {
     return gradient;
 }
 
-// Sales Trend Chart
-const adminSalesCtx = document.getElementById('adminSalesTrendChart');
+// Sales Analysis Chart
+const adminSalesCtx = document.getElementById('adminSalesAnalysisChart');
 if (adminSalesCtx) {
 const salesGradient = createAdminGradient(adminSalesCtx.getContext('2d'), [
     { position: 0, color: 'rgba(159, 122, 28, 0.34)' },
@@ -656,7 +719,7 @@ new Chart(adminSalesCtx, {
             fill: true,
             yAxisID: 'y'
         }, {
-            label: 'Orders',
+            label: 'Transactions',
             data: adminOrderSeries,
             borderColor: '#0d6efd',
             backgroundColor: 'rgba(13, 110, 253, 0.9)',
@@ -723,7 +786,7 @@ new Chart(adminSalesCtx, {
                 },
                 title: {
                     display: true,
-                    text: 'Orders'
+                    text: 'Transactions'
                 },
                 grid: {
                     drawOnChartArea: false

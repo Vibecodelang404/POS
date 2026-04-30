@@ -634,13 +634,15 @@ $displayName = htmlspecialchars(trim($firstName . ' ' . $lastName));
 $roleLabel = ucfirst($_SESSION['role'] ?? 'Admin');
 $pageName = isset($page_title) ? $page_title : 'Dashboard';
 $pageDescriptions = [
-    'Admin Dashboard' => 'Track store health, sales movement, and inventory risks in one view.',
-    'User Management' => 'Manage access, roles, and account status without losing context.',
-    'Inventory Management' => 'Review stock status, product details, and replenishment needs.',
-    'Inventory Stock Reports' => 'Monitor stock adjustments and audit inventory activity.',
-    'Settings' => 'Adjust system preferences, account controls, and store configuration.'
+    'Admin Dashboard' => 'Monitor revenue, demand signals, and stock risk to guide business decisions.',
+    'Sales Analysis' => 'Compare revenue, payment behavior, and product demand across the selected period.',
+    'Users' => 'Align team access and account coverage with daily operations and business priorities.',
+    'Inventory' => 'Review stock health, availability risk, and replenishment priorities in one place.',
+    'Supplier Receiving' => 'Receive supplier deliveries, record invoices, and update stock batches with cost details.',
+    'Inventory Stock Reports' => 'Audit stock movement patterns and spot inventory issues that need follow-up.',
+    'Settings' => 'Maintain the system settings that support reporting, operations, and store continuity.'
 ];
-$pageSubtitle = $pageDescriptions[$pageName] ?? 'Manage daily operations from a more organized admin workspace.';
+$pageSubtitle = $pageDescriptions[$pageName] ?? 'Use this workspace to monitor operations and act on the insights that matter most.';
 ?>
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
     <div class="sidebar" id="sidebar">
@@ -667,6 +669,15 @@ $pageSubtitle = $pageDescriptions[$pageName] ?? 'Manage daily operations from a 
                     </a>
                 </li>
                 <?php endif; ?>
+
+                <?php if (isAdmin()): ?>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'receiving.php' ? 'active' : ''; ?>" href="receiving.php">
+                        <i class="fas fa-truck-loading"></i>
+                        <span class="nav-label">Receiving</span>
+                    </a>
+                </li>
+                <?php endif; ?>
                 
                 <li class="nav-item">
                     <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'transactions.php' ? 'active' : ''; ?>" href="transactions.php">
@@ -684,16 +695,16 @@ $pageSubtitle = $pageDescriptions[$pageName] ?? 'Manage daily operations from a 
                 
                 <?php if (isAdmin()): ?>
                 <li class="nav-item">
-                    <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'sales_trend_analysis.php' ? 'active' : ''; ?>" href="sales_trend_analysis.php">
-                        <i class="fas fa-chart-area"></i>
-                        <span class="nav-label">Sales Trend Analysis</span>
+                    <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'sales_analysis.php' ? 'active' : ''; ?>" href="sales_analysis.php">
+                        <i class="fas fa-chart-line"></i>
+                        <span class="nav-label">Sales Analysis</span>
                     </a>
                 </li>
-                
+
                 <li class="nav-item">
                     <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'user_management.php' ? 'active' : ''; ?>" href="user_management.php">
                         <i class="fas fa-users-cog"></i>
-                        <span class="nav-label">User Management</span>
+                        <span class="nav-label">Users</span>
                     </a>
                 </li>
                 
@@ -731,7 +742,7 @@ $pageSubtitle = $pageDescriptions[$pageName] ?? 'Manage daily operations from a 
                     <i class="fas fa-bars"></i>
                 </button>
                 <div class="page-context">
-                    <span class="page-overline"><?php echo $roleLabel; ?> Workspace</span>
+                    <span class="page-overline"><?php echo isAdmin() ? 'Business Insights Workspace' : $roleLabel . ' Workspace'; ?></span>
                     <h5 class="mb-0 section-heading"><?php echo $pageName; ?></h5>
                     <div class="page-subtitle"><?php echo htmlspecialchars($pageSubtitle); ?></div>
                 </div>

@@ -34,8 +34,97 @@ if (isset($_GET['format']) && $_GET['format'] === 'json') {
 
 requireAdmin(); // Only admin can access
 
-$page_title = 'Transaction Management';
+$page_title = 'Transactions';
 $db = Database::getInstance()->getConnection();
+$message = $_GET['message'] ?? '';
+$messageType = $_GET['message_type'] ?? 'info';
+
+function refundOrder(PDO $db, int $orderId, string $reason): bool {
+    if ($orderId <= 0) {
+        return false;
+    }
+
+    try {
+        $db->beginTransaction();
+
+        $orderStmt = $db->prepare("SELECT * FROM orders WHERE id = ? FOR UPDATE");
+        $orderStmt->execute([$orderId]);
+        $order = $orderStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order || $order['status'] !== 'completed') {
+            $db->rollBack();
+            return false;
+        }
+
+        $itemStmt = $db->prepare("SELECT oi.*, p.stock_quantity FROM order_items oi INNER JOIN products p ON p.id = oi.product_id WHERE oi.order_id = ? FOR UPDATE");
+        $itemStmt->execute([$orderId]);
+        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $refundNumber = 'RFND-' . date('Ymd') . '-' . str_pad($orderId, 4, '0', STR_PAD_LEFT);
+        $refundStmt = $db->prepare("
+            INSERT INTO order_refunds (refund_number, order_id, refund_amount, reason, refunded_by, created_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
+        ");
+        $refundStmt->execute([
+            $refundNumber,
+            $orderId,
+            (float) $order['total_amount'],
+            $reason !== '' ? $reason : null,
+            $_SESSION['user_id'] ?? null
+        ]);
+
+        $updateOrderStmt = $db->prepare("UPDATE orders SET status = 'refunded' WHERE id = ?");
+        $updateOrderStmt->execute([$orderId]);
+
+        $stockStmt = $db->prepare("UPDATE products SET stock_quantity = stock_quantity + ?, last_updated_by = ? WHERE id = ?");
+        $batchStmt = $db->prepare("INSERT INTO product_batches (product_id, quantity, expiry_date, created_at, updated_at) VALUES (?, ?, NULL, NOW(), NOW())");
+        $reportStmt = $db->prepare("
+            INSERT INTO inventory_reports
+                (product_id, change_type, quantity, quantity_changed, previous_quantity, new_quantity, date, remarks, user_id, created_at)
+            VALUES (?, 'Added', ?, ?, ?, ?, CURDATE(), ?, ?, NOW())
+        ");
+
+        foreach ($items as $item) {
+            $quantity = (int) $item['quantity'];
+            $previousQuantity = (int) $item['stock_quantity'];
+            $newQuantity = $previousQuantity + $quantity;
+
+            $stockStmt->execute([$quantity, $_SESSION['user_id'] ?? null, (int) $item['product_id']]);
+            $batchStmt->execute([(int) $item['product_id'], $quantity]);
+            $reportStmt->execute([
+                (int) $item['product_id'],
+                $quantity,
+                $quantity,
+                $previousQuantity,
+                $newQuantity,
+                'Refund from ' . ($order['order_number'] ?? 'order #' . $orderId),
+                $_SESSION['user_id'] ?? null
+            ]);
+        }
+
+        $db->commit();
+        return true;
+    } catch (PDOException $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log('Refund order error: ' . $e->getMessage());
+        return false;
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        $message = 'Security validation failed. Please refresh and try again.';
+        $messageType = 'danger';
+    } elseif (($_POST['action'] ?? '') === 'refund_order') {
+        $success = refundOrder($db, (int) ($_POST['order_id'] ?? 0), trim((string) ($_POST['reason'] ?? '')));
+        $message = $success ? 'Transaction refunded and stock restored.' : 'Unable to refund this transaction. Only completed transactions can be refunded.';
+        $messageType = $success ? 'success' : 'danger';
+        header('Location: transactions.php?message=' . urlencode($message) . '&message_type=' . $messageType);
+        exit;
+    }
+}
 
 // Get filter parameters
 $search = $_GET['search'] ?? '';
@@ -97,11 +186,13 @@ $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // Get summary statistics from the same filtered/limited result set shown in the table
 $summarySQL = "SELECT
     COUNT(*) as total_transactions,
-    SUM(filtered.total_amount) as total_sales,
-    AVG(filtered.total_amount) as avg_transaction,
+    SUM(CASE WHEN filtered.status = 'completed' THEN filtered.total_amount ELSE 0 END) as total_sales,
+    AVG(CASE WHEN filtered.status = 'completed' THEN filtered.total_amount ELSE NULL END) as avg_transaction,
     SUM(CASE WHEN filtered.status = 'completed' THEN 1 ELSE 0 END) as completed_count,
     SUM(CASE WHEN filtered.status = 'pending' THEN 1 ELSE 0 END) as pending_count,
-    SUM(CASE WHEN filtered.status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count
+    SUM(CASE WHEN filtered.status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count,
+    SUM(CASE WHEN filtered.status = 'refunded' THEN 1 ELSE 0 END) as refunded_count,
+    SUM(CASE WHEN filtered.status = 'refunded' THEN filtered.total_amount ELSE 0 END) as refunded_amount
 FROM (
     SELECT o.id, o.total_amount, o.status, o.created_at
     FROM orders o
@@ -147,6 +238,13 @@ ob_start();
 .print-only { display: none; }
 </style>
 
+<?php if ($message): ?>
+<div class="alert alert-<?php echo htmlspecialchars($messageType); ?> alert-dismissible fade show no-print" role="alert">
+    <?php echo htmlspecialchars($message); ?>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
+
 <!-- Summary Statistics -->
 <div class="row mb-4">
     <div class="col-xl-3 col-md-6 mb-3">
@@ -171,9 +269,9 @@ ob_start();
                     <i class="fas fa-dollar-sign"></i>
                 </div>
                 <div>
-                    <h3 class="mb-0"><?php echo formatCurrency($summary['total_sales']); ?></h3>
+                    <h3 class="mb-0"><?php echo formatCurrency($summary['total_sales'] ?? 0); ?></h3>
                     <p class="text-muted mb-0">Total Sales</p>
-                    <small class="text-success">Revenue generated</small>
+                    <small class="text-success">Completed only</small>
                 </div>
             </div>
         </div>
@@ -186,7 +284,7 @@ ob_start();
                     <i class="fas fa-chart-line"></i>
                 </div>
                 <div>
-                    <h3 class="mb-0"><?php echo formatCurrency($summary['avg_transaction']); ?></h3>
+                    <h3 class="mb-0"><?php echo formatCurrency($summary['avg_transaction'] ?? 0); ?></h3>
                     <p class="text-muted mb-0">Avg Transaction</p>
                     <small class="text-info">Per sale</small>
                 </div>
@@ -201,9 +299,9 @@ ob_start();
                     <i class="fas fa-check-circle"></i>
                 </div>
                 <div>
-                    <h3 class="mb-0"><?php echo number_format($summary['completed_count']); ?></h3>
+                    <h3 class="mb-0"><?php echo number_format($summary['completed_count'] ?? 0); ?></h3>
                     <p class="text-muted mb-0">Completed</p>
-                    <small class="text-warning"><?php echo $summary['pending_count']; ?> pending</small>
+                    <small class="text-warning"><?php echo (int) ($summary['refunded_count'] ?? 0); ?> refunded | <?php echo formatCurrency($summary['refunded_amount'] ?? 0); ?></small>
                 </div>
             </div>
         </div>
@@ -223,7 +321,7 @@ ob_start();
                 <form method="GET" class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label">Search</label>
-                        <input type="text" class="form-control" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Order number, cashier...">
+                        <input type="text" class="form-control" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Transaction number, cashier...">
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">From Date</label>
@@ -240,6 +338,7 @@ ob_start();
                             <option value="completed" <?php echo $status === 'completed' ? 'selected' : ''; ?>>Completed</option>
                             <option value="pending" <?php echo $status === 'pending' ? 'selected' : ''; ?>>Pending</option>
                             <option value="cancelled" <?php echo $status === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
+                            <option value="refunded" <?php echo $status === 'refunded' ? 'selected' : ''; ?>>Refunded</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -285,7 +384,7 @@ ob_start();
         <div class="content-card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
-                    <i class="fas fa-list me-2"></i>Transaction Management
+                    <i class="fas fa-list me-2"></i>Transactions
                 </h5>
                 <span class="badge bg-primary"><?php echo count($transactions); ?> of <?php echo $summary['total_transactions']; ?> transactions</span>
             </div>
@@ -293,7 +392,7 @@ ob_start();
                 <div class="print-only">
                     <div class="text-center mb-4">
                         <h3>KAKAI'S POS</h3>
-                        <h4>Transaction Management Report</h4>
+                        <h4>Transactions Report</h4>
                         <p>Generated on: <?php echo date('F j, Y g:i A'); ?></p>
                         <p>Administrator: <?php echo htmlspecialchars($_SESSION['first_name'] . ' ' . $_SESSION['last_name']); ?></p>
                         <?php if ($date_from || $date_to): ?>
@@ -311,10 +410,10 @@ ob_start();
                 </div>
                 
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-striped table-hover table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Order #</th>
+                                <th>Transaction #</th>
                                 <th>Date & Time</th>
                                 <th>Cashier</th>
                                 <th>Items</th>
@@ -357,7 +456,7 @@ ob_start();
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <span class="badge bg-<?php echo $t['status'] === 'completed' ? 'success' : ($t['status'] === 'pending' ? 'warning' : 'danger'); ?>">
+                                            <span class="badge bg-<?php echo $t['status'] === 'completed' ? 'success' : ($t['status'] === 'pending' ? 'warning' : ($t['status'] === 'refunded' ? 'secondary' : 'danger')); ?>">
                                                 <?php echo ucfirst($t['status']); ?>
                                             </span>
                                         </td>
@@ -365,6 +464,14 @@ ob_start();
                                             <button type="button" class="btn btn-info btn-sm" onclick="viewTransactionDetails(<?php echo $t['id']; ?>)">
                                                 <i class="fas fa-eye me-1"></i>View
                                             </button>
+                                            <?php if ($t['status'] === 'completed'): ?>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-outline-danger btn-sm"
+                                                    onclick="openRefundModal(<?php echo (int) $t['id']; ?>, '<?php echo htmlspecialchars($t['order_number'] ?? 'ORD-' . $t['id'], ENT_QUOTES, 'UTF-8'); ?>', '<?php echo htmlspecialchars(formatCurrency((float) $t['total_amount']), ENT_QUOTES, 'UTF-8'); ?>')">
+                                                    <i class="fas fa-undo me-1"></i>Refund
+                                                </button>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -373,6 +480,48 @@ ob_start();
                     </table>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Refund Modal -->
+<div class="modal fade" id="refundModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fas fa-undo me-2"></i>Refund Transaction</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="refund_order">
+                    <input type="hidden" name="order_id" id="refundOrderId">
+                    <?php echo csrfInput(); ?>
+
+                    <div class="alert alert-warning">
+                        Refund will mark the transaction as refunded and add the sold items back to inventory.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Transaction</label>
+                        <input type="text" id="refundOrderNumber" class="form-control" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Refund Amount</label>
+                        <input type="text" id="refundAmount" class="form-control" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Reason</label>
+                        <textarea name="reason" class="form-control" rows="3" maxlength="255" placeholder="Damaged item, wrong item, customer return..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-undo me-1"></i>Confirm Refund
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -441,6 +590,13 @@ function getTransactionItemTotal(item) {
     return getTransactionItemUnitPrice(item) * parseInt(item.quantity || 0, 10);
 }
 
+function openRefundModal(orderId, orderNumber, amount) {
+    document.getElementById('refundOrderId').value = orderId;
+    document.getElementById('refundOrderNumber').value = orderNumber;
+    document.getElementById('refundAmount').value = amount;
+    new bootstrap.Modal(document.getElementById('refundModal')).show();
+}
+
 // View transaction details in modal
 function viewTransactionDetails(transactionId) {
     const modal = new bootstrap.Modal(document.getElementById('transactionDetailsModal'));
@@ -467,10 +623,10 @@ function viewTransactionDetails(transactionId) {
                 html += '<div class="col-md-6">';
                 html += '<h6 class="fw-bold">Transaction Information</h6>';
                 html += '<table class="table table-borderless table-sm">';
-                html += '<tr><td><strong>Order Number:</strong></td><td>' + safeOrderNumber + '</td></tr>';
+                html += '<tr><td><strong>Transaction Number:</strong></td><td>' + safeOrderNumber + '</td></tr>';
                 html += '<tr><td><strong>Date & Time:</strong></td><td>' + new Date(t.created_at).toLocaleString() + '</td></tr>';
                 html += '<tr><td><strong>Cashier:</strong></td><td>' + safeCashierName + '</td></tr>';
-                const statusBadge = t.status === 'completed' ? 'success' : (t.status === 'pending' ? 'warning' : 'danger');
+                const statusBadge = t.status === 'completed' ? 'success' : (t.status === 'pending' ? 'warning' : (t.status === 'refunded' ? 'secondary' : 'danger'));
                 html += '<tr><td><strong>Status:</strong></td><td><span class="badge bg-' + statusBadge + '">' + safeStatus + '</span></td></tr>';
                 html += '</table></div>';
                 
@@ -484,7 +640,7 @@ function viewTransactionDetails(transactionId) {
                 
                 html += '<hr>';
                 html += '<h6 class="fw-bold mb-3">Items</h6>';
-                html += '<table class="table table-sm table-hover">';
+                html += '<table class="table table-striped table-hover table-bordered align-middle mb-0">';
                 html += '<thead><tr><th>Product</th><th class="text-center">Quantity</th><th class="text-right">Price</th><th class="text-right">Total</th></tr></thead>';
                 html += '<tbody>';
                 
@@ -557,7 +713,7 @@ function printTransactionModal() {
     printContent += '<p style="margin: 5px 0;">Official Transaction Receipt</p>';
     printContent += '<hr style="border: 1px solid #000; margin: 15px 0;">';
     
-    printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Order:</strong> ' + safeOrderNumber + '</p>';
+    printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Transaction:</strong> ' + safeOrderNumber + '</p>';
     printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Date:</strong> ' + new Date(t.created_at).toLocaleString() + '</p>';
     printContent += '<p style="text-align: left; margin: 10px 0;"><strong>Cashier:</strong> ' + safeCashierName + '</p>';
     
@@ -640,7 +796,7 @@ function printTransactionModal() {
                         <h6>Transaction Information</h6>
                         <table class="table table-borderless table-sm">
                             <tr>
-                                <td><strong>Order Number:</strong></td>
+                                <td><strong>Transaction Number:</strong></td>
                                 <td><?php echo htmlspecialchars($selectedTransaction['order_number'] ?? 'ORD-' . $selectedTransaction['id']); ?></td>
                             </tr>
                             <tr>
@@ -654,7 +810,7 @@ function printTransactionModal() {
                             <tr>
                                 <td><strong>Status:</strong></td>
                                 <td>
-                                    <span class="badge bg-<?php echo $selectedTransaction['status'] === 'completed' ? 'success' : ($selectedTransaction['status'] === 'pending' ? 'warning' : 'danger'); ?>">
+                                    <span class="badge bg-<?php echo $selectedTransaction['status'] === 'completed' ? 'success' : ($selectedTransaction['status'] === 'pending' ? 'warning' : ($selectedTransaction['status'] === 'refunded' ? 'secondary' : 'danger')); ?>">
                                         <?php echo ucfirst($selectedTransaction['status']); ?>
                                     </span>
                                 </td>
@@ -682,7 +838,7 @@ function printTransactionModal() {
                 
                 <h6>Items Purchased</h6>
                 <div class="table-responsive">
-                    <table class="table table-bordered">
+                    <table class="table table-striped table-hover table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
                                 <th>Product</th>

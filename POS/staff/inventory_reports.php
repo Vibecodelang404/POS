@@ -13,7 +13,28 @@ $title = 'Inventory Reports';
 $start_date = $_GET['start_date'] ?? date('Y-m-d', strtotime('-7 days'));
 $end_date = $_GET['end_date'] ?? date('Y-m-d');
 $filter_type = $_GET['filter_type'] ?? 'all'; // all, recent, added, removed
+$product_filter = isset($_GET['product_id']) ? (int) $_GET['product_id'] : 0;
+$keyword = trim($_GET['keyword'] ?? '');
 $user_id = $_SESSION['user_id'];
+
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date)) {
+    $start_date = date('Y-m-d', strtotime('-7 days'));
+}
+
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date)) {
+    $end_date = date('Y-m-d');
+}
+
+if ($start_date > $end_date) {
+    [$start_date, $end_date] = [$end_date, $start_date];
+}
+
+$validFilterTypes = ['all', 'recent', 'added', 'removed'];
+if (!in_array($filter_type, $validFilterTypes, true)) {
+    $filter_type = 'all';
+}
+
+$productOptions = $db->query("SELECT id, name, sku FROM products ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle create report form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_report'])) {
@@ -50,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_report'])) {
 }
 
 // Get inventory change reports with filters
-function getInventoryReports($db, $start_date, $end_date, $filter_type, $user_id) {
+function getInventoryReports($db, $start_date, $end_date, $filter_type, $user_id, $product_filter = 0, $keyword = '') {
     $sql = "
         SELECT 
             ir.id,
@@ -91,6 +112,17 @@ function getInventoryReports($db, $start_date, $end_date, $filter_type, $user_id
     } elseif ($filter_type === 'removed') {
         $sql .= " AND ir.change_type = 'Removed'";
     }
+
+    if ($product_filter > 0) {
+        $sql .= " AND ir.product_id = ?";
+        $params[] = $product_filter;
+    }
+
+    if ($keyword !== '') {
+        $sql .= " AND (p.name LIKE ? OR p.sku LIKE ? OR c.name LIKE ? OR ir.remarks LIKE ?)";
+        $keywordParam = '%' . $keyword . '%';
+        array_push($params, $keywordParam, $keywordParam, $keywordParam, $keywordParam);
+    }
     
     $sql .= " ORDER BY ir.created_at DESC";
     
@@ -100,24 +132,56 @@ function getInventoryReports($db, $start_date, $end_date, $filter_type, $user_id
 }
 
 // Get summary statistics
-function getInventoryStats($db, $start_date, $end_date, $user_id) {
-    $stmt = $db->prepare("
+function getInventoryStats($db, $start_date, $end_date, $user_id, $filter_type = 'all', $product_filter = 0, $keyword = '') {
+    $sql = "
         SELECT 
             COUNT(*) as total_changes,
             SUM(CASE WHEN change_type = 'Added' THEN quantity_changed ELSE 0 END) as total_added,
             SUM(CASE WHEN change_type = 'Removed' THEN quantity_changed ELSE 0 END) as total_removed,
-            COUNT(DISTINCT product_id) as products_affected,
-            COUNT(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR) THEN 1 END) as recent_changes
-        FROM inventory_reports
-        WHERE date BETWEEN ? AND ? AND user_id = ?
-    ");
-    $stmt->execute([$start_date, $end_date, $user_id]);
+            COUNT(DISTINCT ir.product_id) as products_affected,
+            COUNT(CASE WHEN ir.created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR) THEN 1 END) as recent_changes
+        FROM inventory_reports ir
+        LEFT JOIN products p ON ir.product_id = p.id
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE ir.date BETWEEN ? AND ? AND ir.user_id = ?
+    ";
+    $params = [$start_date, $end_date, $user_id];
+
+    if ($filter_type === 'recent') {
+        $sql .= " AND ir.created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)";
+    } elseif ($filter_type === 'added') {
+        $sql .= " AND ir.change_type = 'Added'";
+    } elseif ($filter_type === 'removed') {
+        $sql .= " AND ir.change_type = 'Removed'";
+    }
+
+    if ($product_filter > 0) {
+        $sql .= " AND ir.product_id = ?";
+        $params[] = $product_filter;
+    }
+
+    if ($keyword !== '') {
+        $sql .= " AND (p.name LIKE ? OR p.sku LIKE ? OR c.name LIKE ? OR ir.remarks LIKE ?)";
+        $keywordParam = '%' . $keyword . '%';
+        array_push($params, $keywordParam, $keywordParam, $keywordParam, $keywordParam);
+    }
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 // Get data
-$reports = getInventoryReports($db, $start_date, $end_date, $filter_type, $user_id);
-$stats = getInventoryStats($db, $start_date, $end_date, $user_id);
+$reports = getInventoryReports($db, $start_date, $end_date, $filter_type, $user_id, $product_filter, $keyword);
+$stats = getInventoryStats($db, $start_date, $end_date, $user_id, $filter_type, $product_filter, $keyword);
+
+$selectedProductName = 'All Products';
+foreach ($productOptions as $option) {
+    if ((int) $option['id'] === $product_filter) {
+        $selectedProductName = $option['name'];
+        break;
+    }
+}
 
 ob_start();
 ?>
@@ -169,6 +233,33 @@ ob_start();
 .change-removed {
     color: #dc3545;
     font-weight: 600;
+}
+.admin-report-filter {
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: 1px solid rgba(255,255,255,0.72);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+.admin-report-filter .card-header {
+    background: linear-gradient(180deg, rgba(255,255,255,0.84), rgba(248,250,252,0.72)) !important;
+    border-bottom: 1px solid var(--line) !important;
+    padding: 1.2rem 1.5rem;
+    font-weight: 700;
+    font-family: 'Manrope', sans-serif;
+}
+.admin-report-filter .card-body {
+    padding: 1.5rem;
+}
+.admin-report-filter .form-label {
+    color: #172033;
+    font-size: 0.95rem;
+}
+.admin-report-filter .form-control,
+.admin-report-filter .form-select {
+    min-height: 42px;
 }
 </style>
 
@@ -234,11 +325,11 @@ ob_start();
 <!-- Filters -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="content-card">
+        <div class="content-card admin-report-filter">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Report Filters</h5>
                 <div class="d-flex gap-2">
-                    <a href="?start_date=<?php echo date('Y-m-d', strtotime('-7 days')); ?>&end_date=<?php echo date('Y-m-d'); ?>&filter_type=all" class="btn btn-outline-secondary btn-sm">
+                    <a href="?start_date=<?php echo date('Y-m-d', strtotime('-7 days')); ?>&end_date=<?php echo date('Y-m-d'); ?>&filter_type=all&product_id=0&keyword=" class="btn btn-outline-secondary btn-sm">
                         <i class="fas fa-redo me-1"></i>Reset
                     </a>
                     <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#createReportModal">
@@ -248,24 +339,39 @@ ob_start();
             </div>
             <div class="card-body">
                 <form method="GET" class="row g-3">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold">Start Date</label>
                         <input type="date" name="start_date" class="form-control" value="<?php echo htmlspecialchars($start_date); ?>" required>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold">End Date</label>
                         <input type="date" name="end_date" class="form-control" value="<?php echo htmlspecialchars($end_date); ?>" required>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold">Filter By</label>
                         <select name="filter_type" class="form-select">
                             <option value="all" <?php echo $filter_type === 'all' ? 'selected' : ''; ?>>All Changes</option>
                             <option value="recent" <?php echo $filter_type === 'recent' ? 'selected' : ''; ?>>Recent Only (48hrs)</option>
-                            <option value="added" <?php echo $filter_type === 'added' ? 'selected' : ''; ?>>Stock Added</option>
-                            <option value="removed" <?php echo $filter_type === 'removed' ? 'selected' : ''; ?>>Stock Removed</option>
+                            <option value="added" <?php echo $filter_type === 'added' ? 'selected' : ''; ?>>Added Only</option>
+                            <option value="removed" <?php echo $filter_type === 'removed' ? 'selected' : ''; ?>>Removed Only</option>
                         </select>
                     </div>
-                    <div class="col-md-3 d-flex align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Product</label>
+                        <select name="product_id" class="form-select">
+                            <option value="0">All Products</option>
+                            <?php foreach ($productOptions as $productOption): ?>
+                                <option value="<?php echo (int) $productOption['id']; ?>" <?php echo $product_filter === (int) $productOption['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($productOption['name'] . (!empty($productOption['sku']) ? ' - ' . $productOption['sku'] : '')); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Search</label>
+                        <input type="text" name="keyword" class="form-control" value="<?php echo htmlspecialchars($keyword); ?>" placeholder="Product, SKU, remarks">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="fas fa-search me-1"></i>Apply Filter
                         </button>
@@ -276,12 +382,8 @@ ob_start();
     </div>
 </div>
 
-<div class="container py-4">
-    <!-- Create Report Button -->
-
-
-    <!-- Create Report Modal -->
-    <div class="modal fade" id="createReportModal" tabindex="-1" aria-labelledby="createReportModalLabel" aria-hidden="true">
+<!-- Create Report Modal -->
+<div class="modal fade" id="createReportModal" tabindex="-1" aria-labelledby="createReportModalLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
           <form method="POST" id="reportForm">
@@ -298,8 +400,7 @@ ob_start();
                 <label for="product_id" class="form-label">Product</label>
                 <select name="product_id" id="product_id" required class="form-select">
                   <option value="">Select Product</option>
-                  <?php $products = $db->query("SELECT id, name FROM products ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC); ?>
-                  <?php foreach ($products as $p): ?>
+                  <?php foreach ($productOptions as $p): ?>
                     <option value="<?=$p['id']?>"><?=htmlspecialchars($p['name'])?></option>
                   <?php endforeach; ?>
                 </select>
@@ -329,9 +430,9 @@ ob_start();
       </div>
     </div>
 
-    <!-- Inventory Reports Table -->
-    <div class="card p-3" style="border-radius: 12px;">
-      <div class="d-flex justify-content-between align-items-center mb-3">
+<!-- Inventory Reports Table -->
+<div class="content-card admin-report-filter">
+      <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>My Inventory Changes</h5>
         <button class="btn btn-success btn-sm" onclick="window.print()">
             <i class="fas fa-print me-1"></i>Print Report
@@ -339,13 +440,16 @@ ob_start();
       </div>
       
       <?php if (empty($reports)): ?>
+      <div class="card-body">
         <div class="text-center py-5">
             <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
             <p class="text-muted">No inventory changes found for the selected period</p>
         </div>
+      </div>
       <?php else: ?>
+      <div class="card-body">
       <div class="table-responsive">
-        <table class="table table-hover report-table">
+        <table class="table table-striped table-hover table-bordered align-middle report-table mb-0">
           <thead>
             <tr>
               <th>Date & Time</th>
@@ -402,15 +506,15 @@ ob_start();
           </tbody>
         </table>
       </div>
+      </div>
       <?php endif; ?>
-    </div>
-    
-    <!-- Info Alert -->
-    <div class="alert alert-info mt-3">
-        <i class="fas fa-info-circle me-2"></i>
-        <strong>Note:</strong> The "NEW" badge indicates stock changes made within the last 48 hours. 
-        This page shows only your inventory changes.
-    </div>
+</div>
+
+<!-- Info Alert -->
+<div class="alert alert-info mt-3">
+    <i class="fas fa-info-circle me-2"></i>
+    <strong>Note:</strong> The "NEW" badge indicates stock changes made within the last 48 hours. 
+    This page shows only your inventory changes.
 </div>
 
 <script>

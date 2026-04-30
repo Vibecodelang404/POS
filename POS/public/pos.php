@@ -22,15 +22,6 @@ ob_start();
                         <div class="col-md-4">
                             <div class="card text-center">
                                 <div class="card-body">
-                                    <i class="fas fa-barcode fa-2x text-primary mb-2"></i>
-                                    <h6>Barcode Scanner</h6>
-                                    <p class="small text-muted">Scan product barcodes</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card text-center">
-                                <div class="card-body">
                                     <i class="fas fa-credit-card fa-2x text-warning mb-2"></i>
                                     <h6>Payment Processing</h6>
                                     <p class="small text-muted">Process customer payments</p>

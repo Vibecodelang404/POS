@@ -17,6 +17,10 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'cashier') {
 // Get DB connection
 $db = Database::getInstance()->getConnection();
 
+function generatedSku($productId) {
+    return 'SKU-' . str_pad((int) $productId, 4, '0', STR_PAD_LEFT);
+}
+
 // Fetch categories for dropdown
 $categories = $db->query("SELECT id, name FROM categories ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -24,6 +28,7 @@ $categories = $db->query("SELECT id, name FROM categories ORDER BY name ASC")->f
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $category_filter = isset($_GET['category_id']) ? intval($_GET['category_id']) : 0;
 $stock_filter = isset($_GET['stock_filter']) ? $_GET['stock_filter'] : '';
+$product_type_filter = $_GET['product_type'] ?? '';
 
 // Pagination setup
 $perPage = 15;
@@ -44,6 +49,11 @@ if (!empty($search)) {
 if ($category_filter > 0) {
     $whereConditions[] = "p.category_id = ?";
     $params[] = $category_filter;
+}
+
+if (in_array($product_type_filter, ['retail', 'wholesale'], true)) {
+    $whereConditions[] = "p.product_type = ?";
+    $params[] = $product_type_filter;
 }
 
 // Stock filter
@@ -300,10 +310,10 @@ ob_start();
                         <div class="col-md-5">
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                <input type="text" name="search" class="form-control" placeholder="Search by Name, SKU or Barcode" value="<?php echo htmlspecialchars($search); ?>">
+                                <input type="text" name="search" class="form-control" placeholder="Search by Name or SKU" value="<?php echo htmlspecialchars($search); ?>">
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <select name="category_id" class="form-select">
                                 <option value="">All Categories</option>
                                 <?php foreach ($categories as $category): ?>
@@ -311,6 +321,13 @@ ob_start();
                                         <?php echo htmlspecialchars($category['name']); ?>
                                     </option>
                                 <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="product_type" class="form-select">
+                                <option value="">All Types</option>
+                                <option value="retail" <?php echo $product_type_filter === 'retail' ? 'selected' : ''; ?>>Retail</option>
+                                <option value="wholesale" <?php echo $product_type_filter === 'wholesale' ? 'selected' : ''; ?>>Wholesale</option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -341,13 +358,13 @@ ob_start();
                 
                 <!-- Products Table -->
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table class="table table-striped table-hover table-bordered align-middle mb-0">
                         <thead class="table-danger">
                             <tr>
                                 <th>Product Name</th>
                                 <th>Category</th>
+                                <th>Type</th>
                                 <th>SKU</th>
-                                <th>Barcode</th>
                                 <th>Price</th>
                                 <th>Quantity</th>
                                 <th>Expiry Date</th>
@@ -395,17 +412,8 @@ ob_start();
                                     <?php endif; ?>
                                 </td>
                                 <td><span class="badge bg-info"><?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></span></td>
-                                <td><?php echo htmlspecialchars($product['sku'] ?? 'N/A'); ?></td>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span><?php echo htmlspecialchars($product['barcode'] ?? 'N/A'); ?></span>
-                                        <?php if (!empty($product['barcode'])): ?>
-                                            <button class="btn btn-sm btn-outline-secondary" onclick="showBarcode('<?php echo htmlspecialchars($product['barcode']); ?>', '<?php echo htmlspecialchars($product['name']); ?>')" title="Show Barcode">
-                                                <i class="fas fa-barcode"></i>
-                                            </button>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
+                                <td><span class="badge bg-<?php echo ($product['product_type'] ?? 'retail') === 'wholesale' ? 'dark' : 'secondary'; ?>"><?php echo ucfirst($product['product_type'] ?? 'retail'); ?></span></td>
+                                <td><?php echo htmlspecialchars(generatedSku($product['id'] ?? 0)); ?></td>
                                 <td><?php echo formatCurrency($product['price']); ?></td>
                                 <td>
                                     <span class="badge bg-<?php 
@@ -441,13 +449,13 @@ ob_start();
                 <nav aria-label="Page navigation" class="mt-3">
                     <ul class="pagination justify-content-center">
                         <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
-                            <a class="page-link" href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search); ?>&category_id=<?php echo $category_filter; ?>&stock_filter=<?php echo $stock_filter; ?>">Previous</a>
+                            <a class="page-link" href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search); ?>&category_id=<?php echo $category_filter; ?>&stock_filter=<?php echo $stock_filter; ?>&product_type=<?php echo urlencode($product_type_filter); ?>">Previous</a>
                         </li>
                         
                         <?php for ($i = 1; $i <= $totalPages; $i++): ?>
                             <?php if ($i == 1 || $i == $totalPages || abs($i - $page) <= 2): ?>
                                 <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
-                                    <a class="page-link" href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&category_id=<?php echo $category_filter; ?>&stock_filter=<?php echo $stock_filter; ?>"><?php echo $i; ?></a>
+                                    <a class="page-link" href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&category_id=<?php echo $category_filter; ?>&stock_filter=<?php echo $stock_filter; ?>&product_type=<?php echo urlencode($product_type_filter); ?>"><?php echo $i; ?></a>
                                 </li>
                             <?php elseif (abs($i - $page) == 3): ?>
                                 <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -455,7 +463,7 @@ ob_start();
                         <?php endfor; ?>
                         
                         <li class="page-item <?php echo $page >= $totalPages ? 'disabled' : ''; ?>">
-                            <a class="page-link" href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search); ?>&category_id=<?php echo $category_filter; ?>&stock_filter=<?php echo $stock_filter; ?>">Next</a>
+                            <a class="page-link" href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search); ?>&category_id=<?php echo $category_filter; ?>&stock_filter=<?php echo $stock_filter; ?>&product_type=<?php echo urlencode($product_type_filter); ?>">Next</a>
                         </li>
                     </ul>
                     <p class="text-center text-muted">Showing <?php echo $offset + 1; ?>-<?php echo min($offset + $perPage, $totalProducts); ?> of <?php echo $totalProducts; ?> products</p>
@@ -496,7 +504,7 @@ function printBarcode() {
 }
 </script>
 
-<!-- Barcode Display Modal -->
+<!-- Barcode Display Modal hidden for now; integration code kept in place. -->
 <div class="modal fade" id="barcodeModal" tabindex="-1" aria-labelledby="barcodeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">

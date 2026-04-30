@@ -9,7 +9,7 @@ define('BASE_URL', '/POS/');
 
 // Database configuration
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'pointshift_pos');
+define('DB_NAME', 'kakai_pos');
 define('DB_USER', 'root');
 define('DB_PASS', '');
 

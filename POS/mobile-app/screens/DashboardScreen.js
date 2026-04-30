@@ -158,14 +158,6 @@ const DashboardScreen = ({ navigation }) => {
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         
         <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('Scanner')}
-        >
-          <Ionicons name="barcode-outline" size={24} color="#fff" />
-          <Text style={styles.actionButtonText}>Scan Barcode</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: '#28a745' }]}
           onPress={() => navigation.navigate('Inventory', { action: 'add' })}
         >

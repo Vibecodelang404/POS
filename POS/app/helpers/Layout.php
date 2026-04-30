@@ -8,6 +8,29 @@ class Layout {
     }
     
     private static function getMenuItems($role) {
+        if ($role === 'staff') {
+            return [
+                [
+                    'title' => 'Dashboard',
+                    'url' => 'dashboard.php',
+                    'icon' => 'fas fa-tachometer-alt',
+                    'active' => basename($_SERVER['PHP_SELF']) == 'dashboard.php'
+                ],
+                [
+                    'title' => 'Inventory',
+                    'url' => 'manage_product.php',
+                    'icon' => 'fas fa-box',
+                    'active' => basename($_SERVER['PHP_SELF']) == 'manage_product.php'
+                ],
+                [
+                    'title' => 'Inventory Reports',
+                    'url' => 'inventory_reports.php',
+                    'icon' => 'fas fa-file-alt',
+                    'active' => basename($_SERVER['PHP_SELF']) == 'inventory_reports.php'
+                ]
+            ];
+        }
+
         $items = [
             [
                 'title' => 'Overview',

@@ -277,7 +277,7 @@ if (in_array($exportType, ['csv', 'xls'], true)) {
         fputcsv($output, []);
 
         fputcsv($output, ['Latest Transactions In Range']);
-        fputcsv($output, ['Order #', 'Date & Time', 'Items', 'Payment', 'Status', 'Total']);
+        fputcsv($output, ['Transaction #', 'Date & Time', 'Items', 'Payment', 'Status', 'Total']);
         if (empty($transactions)) {
             fputcsv($output, ['No transactions matched the selected date range.']);
         } else {
@@ -402,7 +402,7 @@ if (in_array($exportType, ['csv', 'xls'], true)) {
 
     <h3>Latest Transactions In Range</h3>
     <table>
-        <tr><th>Order #</th><th>Date & Time</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th></tr>
+        <tr><th>Transaction #</th><th>Date & Time</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th></tr>
         <?php if (empty($transactions)): ?>
             <tr><td colspan="6">No transactions matched the selected date range.</td></tr>
         <?php else: ?>
@@ -626,7 +626,7 @@ ob_start();
                 </div>
                 <div class="card-body p-4">
                     <div class="table-responsive">
-                        <table class="table align-middle mb-0">
+                        <table class="table table-striped table-hover table-bordered align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
                                     <th>Date</th>
@@ -703,7 +703,7 @@ ob_start();
                             <strong><?php echo $dateSpanDays; ?> days</strong>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted">Completed order share</span>
+                            <span class="text-muted">Completed transaction share</span>
                             <strong><?php echo number_format($completionRate, 1); ?>%</strong>
                         </div>
                         <div class="d-flex justify-content-between">
@@ -759,7 +759,7 @@ ob_start();
                 </div>
                 <div class="card-body p-4">
                     <div class="table-responsive">
-                        <table class="table align-middle mb-0">
+                        <table class="table table-striped table-hover table-bordered align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
                                     <th>Product</th>
@@ -804,10 +804,10 @@ ob_start();
         </div>
         <div class="card-body p-4">
             <div class="table-responsive">
-                <table class="table align-middle mb-0">
+                <table class="table table-striped table-hover table-bordered align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>Order #</th>
+                            <th>Transaction #</th>
                             <th>Date & Time</th>
                             <th>Items</th>
                             <th>Payment</th>

@@ -5,6 +5,13 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'staff') {
     header('Location: ../login.php');
     exit();
 }
+
+$barcodeUiEnabled = false;
+if (!$barcodeUiEnabled) {
+    header('Location: manage_product.php');
+    exit();
+}
+
 // Set page title for layout
 $title = 'Barcode Scanner';
 $db = Database::getInstance()->getConnection();

@@ -166,11 +166,13 @@ function addProduct() {
     
     $name = $data['name'] ?? '';
     $price = $data['price'] ?? 0;
+    $cost_price = $data['cost_price'] ?? 0;
     $stock_quantity = $data['stock_quantity'] ?? 0;
     $barcode = $data['barcode'] ?? null;
     $expiry = $data['expiry'] ?? null;
     $description = $data['description'] ?? '';
     $category_id = $data['category_id'] ?? 1; // Default category
+    $product_type = in_array($data['product_type'] ?? '', ['retail', 'wholesale'], true) ? $data['product_type'] : 'retail';
     $low_stock_threshold = 10;
     
     if (empty($name) || $price <= 0) {
@@ -179,22 +181,18 @@ function addProduct() {
     }
     
     try {
-        // Generate SKU
-        $stmt = $conn->prepare("SELECT MAX(id) as max_id FROM products");
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $row = $result->fetch_assoc();
-        $next_id = ($row['max_id'] ?? 0) + 1;
-        $sku = 'SKU-' . str_pad($next_id, 4, '0', STR_PAD_LEFT);
-        
         $stmt = $conn->prepare("
-            INSERT INTO products (name, sku, category_id, price, stock_quantity, low_stock_threshold, barcode, expiry, description, status, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())
+            INSERT INTO products (name, category_id, product_type, price, cost_price, stock_quantity, low_stock_threshold, barcode, expiry, description, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())
         ");
-        $stmt->bind_param("ssiiiisss", $name, $sku, $category_id, $price, $stock_quantity, $low_stock_threshold, $barcode, $expiry, $description);
+        $stmt->bind_param("sisddiisss", $name, $category_id, $product_type, $price, $cost_price, $stock_quantity, $low_stock_threshold, $barcode, $expiry, $description);
         
         if ($stmt->execute()) {
             $product_id = $stmt->insert_id;
+            $sku = 'SKU-' . str_pad($product_id, 4, '0', STR_PAD_LEFT);
+            $skuStmt = $conn->prepare("UPDATE products SET sku = ? WHERE id = ?");
+            $skuStmt->bind_param("si", $sku, $product_id);
+            $skuStmt->execute();
             sendResponse(true, 'Product added successfully', ['product_id' => $product_id]);
         } else {
             sendResponse(false, 'Failed to add product');
@@ -219,10 +217,12 @@ function updateProduct() {
     $id = $data['id'] ?? 0;
     $name = $data['name'] ?? '';
     $price = $data['price'] ?? 0;
+    $cost_price = $data['cost_price'] ?? 0;
     $stock_quantity = $data['stock_quantity'] ?? 0;
     $barcode = $data['barcode'] ?? null;
     $expiry = $data['expiry'] ?? null;
     $description = $data['description'] ?? '';
+    $product_type = in_array($data['product_type'] ?? '', ['retail', 'wholesale'], true) ? $data['product_type'] : 'retail';
     
     if (empty($id) || empty($name)) {
         sendResponse(false, 'Product ID and name are required');
@@ -232,10 +232,10 @@ function updateProduct() {
     try {
         $stmt = $conn->prepare("
             UPDATE products 
-            SET name = ?, price = ?, stock_quantity = ?, barcode = ?, expiry = ?, description = ?, updated_at = NOW()
+            SET name = ?, product_type = ?, price = ?, cost_price = ?, stock_quantity = ?, barcode = ?, expiry = ?, description = ?, updated_at = NOW()
             WHERE id = ?
         ");
-        $stmt->bind_param("sdiissi", $name, $price, $stock_quantity, $barcode, $expiry, $description, $id);
+        $stmt->bind_param("ssddisssi", $name, $product_type, $price, $cost_price, $stock_quantity, $barcode, $expiry, $description, $id);
         
         if ($stmt->execute()) {
             sendResponse(true, 'Product updated successfully');

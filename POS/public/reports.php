@@ -7,20 +7,25 @@ $page_title = 'Inventory Stock Reports';
 // Get date range from request or default to last 7 days
 $start_date = $_GET['start_date'] ?? date('Y-m-d', strtotime('-7 days'));
 $end_date = $_GET['end_date'] ?? date('Y-m-d');
-$filter_type = $_GET['filter_type'] ?? 'all'; // all, recent, admin
+$filter_type = $_GET['filter_type'] ?? 'all'; // all, recent, admin, added, removed
+$category_filter = trim($_GET['category_filter'] ?? '');
+$search = trim($_GET['search'] ?? '');
 
 // Database connection
 $db = Database::getInstance()->getConnection();
+$categories = $db->query("SELECT id, name FROM categories ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 // Get inventory change reports with user information
-function getInventoryReports($db, $start_date, $end_date, $filter_type) {
+function getInventoryReports($db, $start_date, $end_date, $filter_type, $category_filter, $search) {
     $sql = "
         SELECT 
             ir.id,
             ir.date,
             ir.product_id,
             ir.change_type,
-            ir.quantity as changed_quantity,
+            COALESCE(NULLIF(ir.quantity_changed, 0), ir.quantity) as changed_quantity,
+            ir.previous_quantity,
+            ir.new_quantity,
             ir.remarks,
             ir.user_id,
             ir.created_at,
@@ -51,6 +56,23 @@ function getInventoryReports($db, $start_date, $end_date, $filter_type) {
         $sql .= " AND ir.created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)";
     } elseif ($filter_type === 'admin') {
         $sql .= " AND u.role = 'admin'";
+    } elseif ($filter_type === 'added') {
+        $sql .= " AND ir.change_type = 'Added'";
+    } elseif ($filter_type === 'removed') {
+        $sql .= " AND ir.change_type = 'Removed'";
+    }
+
+    if ($category_filter !== '') {
+        $sql .= " AND p.category_id = ?";
+        $params[] = $category_filter;
+    }
+
+    if ($search !== '') {
+        $sql .= " AND (p.name LIKE ? OR p.sku LIKE ? OR ir.remarks LIKE ?)";
+        $searchTerm = '%' . $search . '%';
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
     }
     
     $sql .= " ORDER BY ir.created_at DESC";
@@ -61,33 +83,54 @@ function getInventoryReports($db, $start_date, $end_date, $filter_type) {
 }
 
 // Get summary statistics
-function getInventoryStats($db, $start_date, $end_date, $filter_type) {
+function getInventoryStats($db, $start_date, $end_date, $filter_type, $category_filter, $search) {
     $sql = "
         SELECT 
             COUNT(*) as total_changes,
-            SUM(CASE WHEN ir.change_type = 'Added' THEN ir.quantity ELSE 0 END) as total_added,
-            SUM(CASE WHEN ir.change_type = 'Removed' THEN ir.quantity ELSE 0 END) as total_removed,
+            SUM(CASE WHEN ir.change_type = 'Added' THEN COALESCE(NULLIF(ir.quantity_changed, 0), ir.quantity) ELSE 0 END) as total_added,
+            SUM(CASE WHEN ir.change_type = 'Removed' THEN COALESCE(NULLIF(ir.quantity_changed, 0), ir.quantity) ELSE 0 END) as total_removed,
             COUNT(DISTINCT ir.product_id) as products_affected,
-            COUNT(CASE WHEN ir.created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR) THEN 1 END) as recent_changes
+            COUNT(CASE WHEN ir.created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR) THEN 1 END) as recent_changes,
+            COUNT(DISTINCT ir.user_id) as users_involved
         FROM inventory_reports ir
+        LEFT JOIN products p ON ir.product_id = p.id
         LEFT JOIN users u ON ir.user_id = u.id
         WHERE ir.date BETWEEN ? AND ?
     ";
+
+    $params = [$start_date, $end_date];
 
     if ($filter_type === 'recent') {
         $sql .= " AND ir.created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)";
     } elseif ($filter_type === 'admin') {
         $sql .= " AND u.role = 'admin'";
+    } elseif ($filter_type === 'added') {
+        $sql .= " AND ir.change_type = 'Added'";
+    } elseif ($filter_type === 'removed') {
+        $sql .= " AND ir.change_type = 'Removed'";
+    }
+
+    if ($category_filter !== '') {
+        $sql .= " AND p.category_id = ?";
+        $params[] = $category_filter;
+    }
+
+    if ($search !== '') {
+        $sql .= " AND (p.name LIKE ? OR p.sku LIKE ? OR ir.remarks LIKE ?)";
+        $searchTerm = '%' . $search . '%';
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
     }
 
     $stmt = $db->prepare($sql);
-    $stmt->execute([$start_date, $end_date]);
+    $stmt->execute($params);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 // Get data
-$reports = getInventoryReports($db, $start_date, $end_date, $filter_type);
-$stats = getInventoryStats($db, $start_date, $end_date, $filter_type);
+$reports = getInventoryReports($db, $start_date, $end_date, $filter_type, $category_filter, $search);
+$stats = getInventoryStats($db, $start_date, $end_date, $filter_type, $category_filter, $search);
 
 ob_start();
 ?>
@@ -95,24 +138,22 @@ ob_start();
 <style>
 .stat-card {
     border-radius: 12px;
-    padding: 1.5rem;
+    padding: 1.1rem 1.25rem;
     background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    border-left: 4px solid;
-    transition: transform 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    border: 1px solid rgba(0,0,0,0.06);
 }
 .stat-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 .stat-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.8rem;
+    font-size: 1rem;
 }
 .badge-new {
     animation: pulse 2s infinite;
@@ -145,7 +186,7 @@ ob_start();
 <!-- Stats Cards -->
 <div class="row mb-4">
     <div class="col-xl-3 col-md-6 mb-3">
-        <div class="stat-card" style="border-left-color: #0d6efd;">
+        <div class="stat-card">
             <div class="d-flex align-items-center">
                 <div class="stat-icon bg-primary text-white me-3">
                     <i class="fas fa-chart-line"></i>
@@ -159,7 +200,7 @@ ob_start();
     </div>
     
     <div class="col-xl-3 col-md-6 mb-3">
-        <div class="stat-card" style="border-left-color: #28a745;">
+        <div class="stat-card">
             <div class="d-flex align-items-center">
                 <div class="stat-icon bg-success text-white me-3">
                     <i class="fas fa-arrow-up"></i>
@@ -173,7 +214,7 @@ ob_start();
     </div>
     
     <div class="col-xl-3 col-md-6 mb-3">
-        <div class="stat-card" style="border-left-color: #dc3545;">
+        <div class="stat-card">
             <div class="d-flex align-items-center">
                 <div class="stat-icon bg-danger text-white me-3">
                     <i class="fas fa-arrow-down"></i>
@@ -187,14 +228,14 @@ ob_start();
     </div>
     
     <div class="col-xl-3 col-md-6 mb-3">
-        <div class="stat-card" style="border-left-color: #ffc107;">
+        <div class="stat-card">
             <div class="d-flex align-items-center">
                 <div class="stat-icon bg-warning text-white me-3">
                     <i class="fas fa-clock"></i>
                 </div>
                 <div>
                     <h3 class="mb-0"><?php echo number_format($stats['recent_changes'] ?? 0); ?></h3>
-                    <p class="text-muted mb-0">Recent (48hrs)</p>
+                    <p class="text-muted mb-0">Recent Changes</p>
                 </div>
             </div>
         </div>
@@ -213,23 +254,40 @@ ob_start();
             </div>
             <div class="card-body">
                 <form method="GET" class="row g-3">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold">Start Date</label>
                         <input type="date" name="start_date" class="form-control" value="<?php echo htmlspecialchars($start_date); ?>" required>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold">End Date</label>
                         <input type="date" name="end_date" class="form-control" value="<?php echo htmlspecialchars($end_date); ?>" required>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold">Filter By</label>
                         <select name="filter_type" class="form-select">
                             <option value="all" <?php echo $filter_type === 'all' ? 'selected' : ''; ?>>All Changes</option>
                             <option value="recent" <?php echo $filter_type === 'recent' ? 'selected' : ''; ?>>Recent Only (48hrs)</option>
                             <option value="admin" <?php echo $filter_type === 'admin' ? 'selected' : ''; ?>>Admin Changes</option>
+                            <option value="added" <?php echo $filter_type === 'added' ? 'selected' : ''; ?>>Added Only</option>
+                            <option value="removed" <?php echo $filter_type === 'removed' ? 'selected' : ''; ?>>Removed Only</option>
                         </select>
                     </div>
-                    <div class="col-md-3 d-flex align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Category</label>
+                        <select name="category_filter" class="form-select">
+                            <option value="">All Categories</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?php echo (int) $category['id']; ?>" <?php echo (string) $category_filter === (string) $category['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($category['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Search</label>
+                        <input type="text" name="search" class="form-control" value="<?php echo htmlspecialchars($search); ?>" placeholder="Product, SKU, remarks">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="fas fa-search me-1"></i>Apply Filter
                         </button>
@@ -258,7 +316,7 @@ ob_start();
                 </div>
                 <?php else: ?>
                 <div class="table-responsive">
-                    <table class="table table-hover report-table">
+                    <table class="table table-striped table-hover table-bordered align-middle report-table mb-0">
                         <thead>
                             <tr>
                                 <th>Date & Time</th>
@@ -266,7 +324,8 @@ ob_start();
                                 <th>Category</th>
                                 <th>Change Type</th>
                                 <th>Quantity Changed</th>
-                                <th>Current Stock</th>
+                                <th>Stock Before</th>
+                                <th>Stock After</th>
                                 <th>Updated By</th>
                                 <th>Status</th>
                                 <th>Remarks</th>
@@ -297,7 +356,10 @@ ob_start();
                                     <?php echo $report['change_type'] === 'Added' ? '+' : '-'; ?><?php echo number_format($report['changed_quantity']); ?>
                                 </td>
                                 <td>
-                                    <strong><?php echo number_format($report['current_stock']); ?></strong>
+                                    <strong><?php echo number_format((int) ($report['previous_quantity'] ?? 0)); ?></strong>
+                                </td>
+                                <td>
+                                    <strong><?php echo number_format((int) (($report['new_quantity'] ?? $report['current_stock']) ?? 0)); ?></strong>
                                 </td>
                                 <td>
                                     <div>
@@ -342,8 +404,8 @@ ob_start();
     <div class="col-12">
         <div class="alert alert-info">
             <i class="fas fa-info-circle me-2"></i>
-            <strong>Note:</strong> The "NEW" badge indicates stock changes made within the last 48 hours. 
-            Reports show stock additions and removals recorded through the admin inventory workflow.
+            <strong>Note:</strong> The "NEW" badge indicates stock changes made within the last 48 hours.
+            Reports show stock movement history, the before-and-after stock position, and who made each update.
         </div>
     </div>
 </div>

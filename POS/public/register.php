@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../app/config.php';
 
-// Registration is disabled. Only admins can create users through User Management
+// Registration is disabled. Only admins can create users through Users
 redirect('login.php?error=Registration is disabled. Please contact your administrator.');
 exit();
 

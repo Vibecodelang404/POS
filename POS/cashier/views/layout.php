@@ -114,6 +114,42 @@
             top: 0;
             z-index: 100;
         }
+        .page-context {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+        .page-overline {
+            color: var(--accent-deep);
+            font-size: 0.74rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .page-subtitle {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+        .topbar-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .topbar-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.68rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+            color: #344054;
+            font-size: 0.88rem;
+            font-weight: 700;
+        }
         .pos-container {
             padding: 0;
             height: calc(100vh - 70px);
@@ -456,6 +492,17 @@
     $firstName = $_SESSION['first_name'] ?? $_SESSION['username'] ?? 'User';
     $lastName = $_SESSION['last_name'] ?? '';
     $displayName = htmlspecialchars(trim($firstName . ' ' . $lastName));
+    $pageName = isset($page_title) ? $page_title : ($title ?? 'Dashboard');
+    $pageDescriptions = [
+        'Cashier Dashboard' => 'Track today\'s cashier activity, quick actions, and current selling priorities.',
+        'Dashboard' => 'Track today\'s cashier activity, quick actions, and current selling priorities.',
+        'Point of Sale' => 'Build carts, apply retail or wholesale pricing, and complete customer checkout.',
+        'Transaction History' => 'Review completed orders, payment details, and receipt records.',
+        'Sales Summary' => 'Check cashier sales totals, item movement, and payment method breakdowns.',
+        'View Inventory' => 'Look up available products, stock levels, and pricing while assisting customers.',
+        'Account Settings' => 'Maintain your cashier account details and access credentials.'
+    ];
+    $pageSubtitle = $pageDescriptions[$pageName] ?? 'Use this workspace to serve customers and keep transactions accurate.';
     ?>
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
@@ -531,11 +578,15 @@
                 <button class="btn btn-light me-3" id="sidebar-toggle" type="button" aria-label="Toggle sidebar">
                     <i class="fas fa-bars"></i>
                 </button>
-                <div>
-                    <h5 class="mb-0 section-heading"><?php echo isset($page_title) ? $page_title : 'Dashboard'; ?></h5>
+                <div class="page-context">
+                    <span class="page-overline">Cashier Workspace</span>
+                    <h5 class="mb-0 section-heading"><?php echo htmlspecialchars($pageName); ?></h5>
+                    <div class="page-subtitle"><?php echo htmlspecialchars($pageSubtitle); ?></div>
                 </div>
             </div>
-            <div></div>
+            <div class="topbar-meta">
+                <span class="topbar-badge"><i class="fas fa-calendar-alt"></i><?php echo date('M d, Y'); ?></span>
+            </div>
         </nav>
 
         <!-- Page Content -->

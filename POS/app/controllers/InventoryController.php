@@ -303,7 +303,15 @@ class InventoryController {
     
     public function getAllCategories() {
         try {
-            $stmt = $this->db->query("SELECT * FROM categories ORDER BY name ASC");
+            $stmt = $this->db->query("
+                SELECT
+                    c.*,
+                    COUNT(p.id) as product_count
+                FROM categories c
+                LEFT JOIN products p ON p.category_id = c.id AND p.status = 'active'
+                GROUP BY c.id, c.name, c.description, c.created_at
+                ORDER BY c.name ASC
+            ");
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch(PDOException $e) {
             return [];
@@ -333,6 +341,57 @@ class InventoryController {
             return true;
         } catch (PDOException $e) {
             error_log("Add category error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function updateCategory($id, $data) {
+        $categoryId = (int) $id;
+        $name = trim((string) ($data['name'] ?? ''));
+        $description = trim((string) ($data['description'] ?? ''));
+
+        if ($categoryId <= 0 || $name === '') {
+            return false;
+        }
+
+        try {
+            $checkStmt = $this->db->prepare("SELECT COUNT(*) FROM categories WHERE LOWER(name) = LOWER(?) AND id <> ?");
+            $checkStmt->execute([$name, $categoryId]);
+            if ((int) $checkStmt->fetchColumn() > 0) {
+                return false;
+            }
+
+            $stmt = $this->db->prepare("
+                UPDATE categories
+                SET name = ?, description = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$name, $description !== '' ? $description : null, $categoryId]);
+            return $stmt->rowCount() >= 0;
+        } catch (PDOException $e) {
+            error_log("Update category error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function deleteCategory($id) {
+        $categoryId = (int) $id;
+        if ($categoryId <= 0) {
+            return false;
+        }
+
+        try {
+            $productStmt = $this->db->prepare("SELECT COUNT(*) FROM products WHERE category_id = ? AND status = 'active'");
+            $productStmt->execute([$categoryId]);
+            if ((int) $productStmt->fetchColumn() > 0) {
+                return false;
+            }
+
+            $stmt = $this->db->prepare("DELETE FROM categories WHERE id = ?");
+            $stmt->execute([$categoryId]);
+            return $stmt->rowCount() > 0;
+        } catch (PDOException $e) {
+            error_log("Delete category error: " . $e->getMessage());
             return false;
         }
     }

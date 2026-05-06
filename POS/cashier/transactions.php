@@ -181,7 +181,7 @@ ob_start();
             <div class="card-body">
                 <div class="print-only">
                     <div class="text-center mb-4">
-                        <h3>KAKAI'S POS</h3>
+                        <h3>Kakai's Kutkutin POS</h3>
                         <h4>Transaction History Report</h4>
                         <p>Generated on: <?php echo date('F j, Y g:i A'); ?></p>
                         <p>Cashier: <?php echo htmlspecialchars($_SESSION['first_name'] . ' ' . $_SESSION['last_name']); ?></p>
@@ -390,7 +390,7 @@ function printTransactionModal() {
     const items = window.currentTransactionForPrint.items || [];
     
     let printContent = '<div style="max-width: 400px; margin: 0 auto; padding: 20px; text-align: center; font-family: monospace;">';
-    printContent += '<h3 style="margin: 10px 0;">KAKAI\'S POS</h3>';
+    printContent += '<h3 style="margin: 10px 0;">Kakai\'s Kutkutin POS</h3>';
     printContent += '<p style="margin: 5px 0;">Official Transaction Receipt</p>';
     printContent += '<hr style="border: 1px solid #000; margin: 15px 0;">';
     
@@ -426,7 +426,7 @@ function printTransactionModal() {
     printContent += '<p style="text-align: right; margin: 10px 0;"><strong>Change: ₱' + (parseFloat(t.amount_received || t.total_amount || 0) - total).toFixed(2) + '</strong></p>';
     
     printContent += '<hr style="border: 1px solid #000; margin: 15px 0;">';
-    printContent += '<p style="font-size: 12px; margin: 10px 0;">Thank you for your purchase!</p>';
+    printContent += '<p style="font-size: 12px; margin: 10px 0;">Thank you, come again.</p>';
     printContent += '<p style="font-size: 10px; color: #666;">Payment: ' + (t.payment_method || 'Cash') + '</p>';
     printContent += '</div>';
     
@@ -466,7 +466,7 @@ function printTransactionModal() {
             <div class="card-body" id="transactionDetails">
                 <div class="print-only">
                     <div class="text-center mb-4">
-                        <h3>KAKAI'S POS</h3>
+                        <h3>Kakai's Kutkutin POS</h3>
                         <p>Transaction Receipt</p>
                         <hr style="border-top: 2px solid #000;">
                     </div>
@@ -560,7 +560,7 @@ function printTransactionModal() {
                 
                 <div class="print-only text-center mt-4">
                     <hr style="border-top: 2px solid #000;">
-                    <p>Thank you for your business!</p>
+                    <p>Thank you, come again.</p>
                     <p><small>This receipt was generated on <?php echo date('F j, Y g:i A'); ?></small></p>
                 </div>
             </div>

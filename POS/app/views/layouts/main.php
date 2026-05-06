@@ -153,7 +153,7 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <i class="fas fa-cash-register fa-2x text-white mb-2"></i>
-            <h4>Kakai's POS</h4>
+            <h4>Kakai's Kutkutin POS</h4>
             <small><?php echo ucfirst($role); ?> Panel</small>
             <div class="role-badge"><?php echo ucfirst($role); ?></div>
         </div>

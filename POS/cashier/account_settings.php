@@ -14,7 +14,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'cashier') {
     exit();
 }
 
-$page_title = "Account Settings";
+$page_title = "Account Settings";fff
 $current_user_id = $_SESSION['user_id'];
 
 // Handle form submissions

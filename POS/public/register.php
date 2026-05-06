@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="register-header">
                         <i class="fas fa-user-plus fa-3x mb-3"></i>
                         <h3>Create Account</h3>
-                        <p class="mb-0">Join Kakai's POS System</p>
+                        <p class="mb-0">Join Kakai's Kutkutin POS System</p>
                     </div>
                     <div class="register-body">
                         <?php if ($error_message): ?>

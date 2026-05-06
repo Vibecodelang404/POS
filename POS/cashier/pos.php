@@ -321,9 +321,6 @@ ob_start();
                 <button type="button" class="btn btn-success" id="thermal-print-receipt">
                     <i class="fas fa-receipt me-1"></i>Thermal Print
                 </button>
-                <button type="button" class="btn btn-primary" onclick="window.print()">
-                    <i class="fas fa-print me-1"></i>Print Receipt
-                </button>
             </div>
         </div>
     </div>
@@ -373,7 +370,15 @@ let thermalPrinterToast = null;
 
 function getTotalAmount() {
     return parseFloat(document.getElementById('total').textContent.replace(/[^\d.-]/g, '')) || 0;
-    return parseFloat(document.getElementById('total').textContent.replace('â‚±', '')) || 0;
+}
+
+function normalizeCurrencySigns(value) {
+    const mojibakePeso = String.fromCharCode(0x00E2, 0x201A, 0x00B1);
+    const doubleMojibakePeso = String.fromCharCode(0x00C3, 0x00A2, 0x00E2, 0x20AC, 0x0161, 0x00C2, 0x00B1);
+
+    return String(value)
+        .replaceAll(doubleMojibakePeso, pesoSign)
+        .replaceAll(mojibakePeso, pesoSign);
 }
 
 function isGcashSelected() {
@@ -876,7 +881,7 @@ function generateReceipt(orderData) {
     const receiptItems = cart.map(item => ({ ...item }));
 
     lastThermalReceiptData = {
-        storeName: "Kakai's POS",
+        storeName: "Kakai's Kutkutin POS",
         orderNumber: orderData.order_number || 'N/A',
         date: `${dateStr} ${timeStr}`,
         cashier: "<?php echo htmlspecialchars(trim(($_SESSION['first_name'] ?? 'Staff') . ' ' . ($_SESSION['last_name'] ?? 'Member')), ENT_QUOTES, 'UTF-8'); ?>",
@@ -905,7 +910,7 @@ function generateReceipt(orderData) {
     
     const receiptHTML = `
         <div style="max-width: 400px; margin: 0 auto; padding: 20px; text-align: center;">
-            <h4 style="margin: 0 0 5px 0;">Kakai's POS</h4>
+            <h4 style="margin: 0 0 5px 0;">Kakai's Kutkutin POS</h4>
             <p style="margin: 0; font-size: 11px; line-height: 1.4;"><br>
             
             </p>
@@ -966,12 +971,11 @@ function generateReceipt(orderData) {
             
             <hr style="border-top: 1px solid #000; margin: 20px 0 15px 0;">
             
-            <p style="margin: 5px 0; font-size: 11px;">Thank you for your business!</p>
-            <p style="margin: 5px 0; font-size: 11px;">Please come again!</p>
+            <p style="margin: 5px 0; font-size: 11px;">Thank you, come again.</p>
         </div>
     `;
     
-    document.getElementById('receiptContent').innerHTML = receiptHTML;
+    document.getElementById('receiptContent').innerHTML = normalizeCurrencySigns(receiptHTML);
 }
 
 function setPrinterBridgeStatus(status, label) {

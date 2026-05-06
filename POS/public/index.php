@@ -89,12 +89,12 @@ if (isLoggedIn()) {
                 <div class="welcome-card">
                     <div class="brand-section">
                         <i class="fas fa-cash-register fa-3x mb-3"></i>
-                        <h1>Kakai's POS</h1>
+                        <h1>Kakai's Kutkutin POS</h1>
                         <p class="lead">Modern Point of Sale System</p>
                         <p>Streamline your business operations with role-based access</p>
                     </div>
                     <div class="action-section">
-                        <h3 class="mb-4">Welcome to Kakai's POS</h3>
+                        <h3 class="mb-4">Welcome to Kakai's Kutkutin POS</h3>
                         <p class="text-muted mb-4">Sign in to access your dashboard.</p>
                         <div class="d-flex flex-column flex-sm-row justify-content-center">
                             <a href="login.php" class="btn btn-login btn-custom">

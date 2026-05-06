@@ -391,7 +391,7 @@ ob_start();
             <div class="card-body">
                 <div class="print-only">
                     <div class="text-center mb-4">
-                        <h3>KAKAI'S POS</h3>
+                        <h3>Kakai's Kutkutin POS</h3>
                         <h4>Transactions Report</h4>
                         <p>Generated on: <?php echo date('F j, Y g:i A'); ?></p>
                         <p>Administrator: <?php echo htmlspecialchars($_SESSION['first_name'] . ' ' . $_SESSION['last_name']); ?></p>
@@ -709,7 +709,7 @@ function printTransactionModal() {
     const safePaymentMethod = escapeHtml(t.payment_method || 'Cash');
     
     let printContent = '<div style="max-width: 400px; margin: 0 auto; padding: 20px; text-align: center; font-family: monospace;">';
-    printContent += '<h3 style="margin: 10px 0;">KAKAI\'S POS</h3>';
+    printContent += '<h3 style="margin: 10px 0;">Kakai\'s Kutkutin POS</h3>';
     printContent += '<p style="margin: 5px 0;">Official Transaction Receipt</p>';
     printContent += '<hr style="border: 1px solid #000; margin: 15px 0;">';
     
@@ -785,7 +785,7 @@ function printTransactionModal() {
             <div class="card-body" id="transactionDetails">
                 <div class="print-only">
                     <div class="text-center mb-4">
-                        <h3>KAKAI'S POS</h3>
+                        <h3>Kakai's Kutkutin POS</h3>
                         <p>Official Transaction Receipt</p>
                         <hr style="border-top: 2px solid #000;">
                     </div>

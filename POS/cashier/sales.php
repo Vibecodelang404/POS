@@ -534,7 +534,7 @@ ob_start();
 
     <div class="print-only mb-4">
         <div class="text-center">
-            <h3 class="mb-1">KAKAI'S POS</h3>
+            <h3 class="mb-1">Kakai's Kutkutin POS</h3>
             <h5 class="mb-2">Cashier Sales Summary</h5>
             <div>Cashier: <?php echo htmlspecialchars($cashierName); ?></div>
             <div>Period: <?php echo date('F j, Y', strtotime($startDate)); ?> to <?php echo date('F j, Y', strtotime($endDate)); ?></div>

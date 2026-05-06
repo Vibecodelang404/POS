@@ -337,7 +337,7 @@ ob_start();
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Store Name *</label>
-                        <input type="text" class="form-control" name="store_name" value="<?php echo htmlspecialchars($store_settings['store_name'] ?? 'Kakai\'s POS'); ?>" required>
+                        <input type="text" class="form-control" name="store_name" value="<?php echo htmlspecialchars($store_settings['store_name'] ?? 'Kakai\'s Kutkutin POS'); ?>" required>
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Branch Name</label>

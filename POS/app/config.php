@@ -15,7 +15,7 @@ define('DB_PASS', '');
 
 // Site configuration
 define('SITE_URL', 'http://localhost/point-shift_pos-system');
-define('SITE_NAME', 'Kakai\'s POS');
+define('SITE_NAME', 'Kakai\'s Kutkutin POS');
 
 // Session configuration
 session_start();

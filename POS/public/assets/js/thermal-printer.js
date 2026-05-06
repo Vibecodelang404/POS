@@ -29,7 +29,12 @@ class ThermalPrinterReceipt {
     }
 
     text(value = '') {
-        const clean = String(value).replace(/₱/g, 'PHP ');
+        const mojibakePeso = String.fromCharCode(0x00E2, 0x201A, 0x00B1);
+        const doubleMojibakePeso = String.fromCharCode(0x00C3, 0x00A2, 0x00E2, 0x20AC, 0x0161, 0x00C2, 0x00B1);
+        const clean = String(value)
+            .replaceAll(doubleMojibakePeso, 'PHP ')
+            .replaceAll(mojibakePeso, 'PHP ')
+            .replace(/₱/g, 'PHP ');
         this.raw(Array.from(this.encoder.encode(clean)));
         return this;
     }
@@ -105,7 +110,7 @@ function buildThermalReceipt(orderData) {
         .align('center')
         .bold(true)
         .size(2, 1)
-        .line(orderData.storeName || "Kakai's POS")
+        .line(orderData.storeName || "Kakai's Kutkutin POS")
         .size(1, 1)
         .bold(false)
         .line('Official Receipt')
@@ -140,8 +145,7 @@ function buildThermalReceipt(orderData) {
         .pair('Change', receipt.money(orderData.change))
         .rule()
         .align('center')
-        .line('Thank you for your business!')
-        .line('Please come again!')
+        .line('Thank you, come again.')
         .cut();
 
     return receipt.toUint8Array();

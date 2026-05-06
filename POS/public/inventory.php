@@ -29,6 +29,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success = $inventoryController->addCategory($_POST);
                 $redirectMessage = $success ? 'Product category added.' : 'Unable to add category. It may already exist.';
                 break;
+            case 'update_category':
+                $success = $inventoryController->updateCategory($_POST['id'] ?? 0, $_POST);
+                $redirectMessage = $success ? 'Product category updated.' : 'Unable to update category. The name may already exist.';
+                break;
+            case 'delete_category':
+                $success = $inventoryController->deleteCategory($_POST['id'] ?? 0);
+                $redirectMessage = $success ? 'Product category deleted.' : 'Unable to delete category. Remove or reassign active products first.';
+                break;
             case 'save_breakdown_link':
                 $success = $inventoryController->saveBreakdownLink($_POST);
                 $redirectMessage = $success ? 'Breakdown mapping saved.' : 'Unable to save breakdown mapping. Check the selected products and units.';
@@ -388,33 +396,119 @@ ob_start();
     </div>
 </div>
 
-<!-- Add Category Modal -->
+<!-- Category Management Modal -->
 <div class="modal fade" id="addCategoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-tags me-2"></i>Category List</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" class="border rounded p-3 mb-3 bg-light">
+                    <input type="hidden" name="action" value="add_category">
+                    <?php echo csrfInput(); ?>
+
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">Category Name</label>
+                            <input type="text" name="name" class="form-control" maxlength="100" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Description</label>
+                            <input type="text" name="description" class="form-control" maxlength="255" placeholder="Optional">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-plus me-1"></i>Add
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Description</th>
+                                <th class="text-center">Products</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($categories)): ?>
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">No categories yet.</td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($categories as $category): ?>
+                                    <?php $categoryProductCount = (int) ($category['product_count'] ?? 0); ?>
+                                    <tr>
+                                        <td class="fw-semibold"><?php echo htmlspecialchars($category['name']); ?></td>
+                                        <td><?php echo htmlspecialchars($category['description'] ?? ''); ?></td>
+                                        <td class="text-center">
+                                            <span class="badge bg-secondary"><?php echo $categoryProductCount; ?></span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-primary"
+                                                onclick="openEditCategory(this)"
+                                                data-id="<?php echo (int) $category['id']; ?>"
+                                                data-name="<?php echo htmlspecialchars($category['name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                data-description="<?php echo htmlspecialchars($category['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger"
+                                                onclick="deleteCategory(<?php echo (int) $category['id']; ?>, <?php echo $categoryProductCount; ?>)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Category Modal -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <form method="POST">
                 <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="fas fa-tags me-2"></i>Add Product Category</h5>
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Edit Category</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="action" value="add_category">
+                    <input type="hidden" name="action" value="update_category">
+                    <input type="hidden" name="id" id="editCategoryId">
                     <?php echo csrfInput(); ?>
 
                     <div class="mb-3">
                         <label class="form-label">Category Name</label>
-                        <input type="text" name="name" class="form-control" maxlength="100" required>
+                        <input type="text" name="name" id="editCategoryName" class="form-control" maxlength="100" required>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Description</label>
-                        <textarea name="description" class="form-control" rows="3" placeholder="Optional"></textarea>
+                        <textarea name="description" id="editCategoryDescription" class="form-control" rows="3" placeholder="Optional"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-plus me-1"></i>Add Category
+                        <i class="fas fa-save me-1"></i>Save Changes
                     </button>
                 </div>
             </form>
@@ -889,6 +983,49 @@ function setText(id, value) {
     if (element) {
         element.textContent = value;
     }
+}
+
+function openEditCategory(button) {
+    document.getElementById('editCategoryId').value = button.dataset.id || '';
+    document.getElementById('editCategoryName').value = button.dataset.name || '';
+    document.getElementById('editCategoryDescription').value = button.dataset.description || '';
+
+    new bootstrap.Modal(document.getElementById('editCategoryModal')).show();
+}
+
+function deleteCategory(id, productCount) {
+    if (Number(productCount || 0) > 0) {
+        Swal.fire({
+            title: 'Category In Use',
+            text: 'Reassign or delete products in this category before deleting it.',
+            icon: 'info',
+            confirmButtonColor: '#0d6efd'
+        });
+        return;
+    }
+
+    Swal.fire({
+        title: 'Delete Category?',
+        text: 'This action cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Delete',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="delete_category">
+                <input type="hidden" name="id" value="${id}">
+                <input type="hidden" name="csrf_token" value="${csrfToken}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
 }
 
 function viewProduct(button) {
